@@ -27,8 +27,19 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const loadSessionUser = () => {
+    try {
+      // Purge old auto-logged-in cached user from localStorage
+      localStorage.removeItem(STORAGE_PREFIX + 'user');
+      const item = sessionStorage.getItem(STORAGE_PREFIX + 'session_user');
+      return item ? JSON.parse(item) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
   // --- Core States ---
-  const [currentUser, setCurrentUser] = useState(() => loadState('user', null));
+  const [currentUser, setCurrentUser] = useState(loadSessionUser);
   const [adminPassword, setAdminPassword] = useState(() => loadState('adminPassword', 'admin123'));
 
   const [customers, setCustomers] = useState(() => loadState('customers', INITIAL_CUSTOMERS));
@@ -63,9 +74,14 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem(STORAGE_PREFIX + 'theme', JSON.stringify(theme));
   }, [theme]);
 
-  // Persist state updates to localStorage
+  // Persist user state to sessionStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_PREFIX + 'user', JSON.stringify(currentUser));
+    if (currentUser && currentUser.isAuthenticated) {
+      sessionStorage.setItem(STORAGE_PREFIX + 'session_user', JSON.stringify(currentUser));
+    } else {
+      sessionStorage.removeItem(STORAGE_PREFIX + 'session_user');
+      localStorage.removeItem(STORAGE_PREFIX + 'user');
+    }
   }, [currentUser]);
 
   useEffect(() => {
@@ -120,6 +136,7 @@ export const AppProvider = ({ children }) => {
         lastLogin: new Date().toISOString()
       };
       setCurrentUser(loggedUser);
+      sessionStorage.setItem(STORAGE_PREFIX + 'session_user', JSON.stringify(loggedUser));
       showToast('Welcome back, Raj Thakur!', 'success');
       return { success: true };
     }
@@ -128,6 +145,7 @@ export const AppProvider = ({ children }) => {
 
   const logout = () => {
     setCurrentUser(null);
+    sessionStorage.removeItem(STORAGE_PREFIX + 'session_user');
     localStorage.removeItem(STORAGE_PREFIX + 'user');
     showToast('Logged out successfully', 'info');
   };
