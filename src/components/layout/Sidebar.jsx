@@ -73,15 +73,15 @@ export const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         {/* Navigation links list */}
-        <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-0.5">
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
           {/* Business Quick Info Banner (Admin Panel - Above Dashboard) */}
-          <div className="mb-2.5">
-            <div className="rounded-xl bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 p-2.5 text-white shadow-sm shadow-blue-500/15">
+          <div className="mb-4">
+            <div className="rounded-2xl bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 p-3 text-white shadow-md shadow-blue-500/15">
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-blue-100">
                   Admin Panel
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[9px] font-medium text-emerald-300">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                   Active
                 </span>
@@ -89,11 +89,18 @@ export const Sidebar = ({ isOpen, onClose }) => {
               <h3 className="mt-1 font-heading text-xs font-bold leading-tight truncate text-white/95">
                 {settings.tradeName || settings.businessName || 'Thakur Transport'}
               </h3>
-              <div className="mt-1.5 flex items-center justify-between border-t border-blue-500/30 pt-1 text-[10px]">
+              <div className="mt-2 flex items-center justify-between border-t border-blue-500/30 pt-1.5 text-[10px]">
                 <span className="text-blue-200">Stock in Hand:</span>
                 <span className="font-bold text-white">{(analytics.totalBagsInStock || 0).toLocaleString('en-IN')} Bags</span>
               </div>
             </div>
+          </div>
+
+          {/* Section Heading & Spacer */}
+          <div className="px-2 pt-1 pb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Navigation Menu
+            </span>
           </div>
 
           {/* Navigation Items */}
