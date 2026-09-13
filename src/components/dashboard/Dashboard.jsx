@@ -89,22 +89,70 @@ export const Dashboard = () => {
     let salesData = [];
     let bagsData = [];
 
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
     if (salesFilter === 'today') {
-      labels = ['6 AM', '9 AM', '12 PM', '3 PM', '6 PM', '9 PM'];
-      salesData = [0, 11250, 46200, 0, 0, 0];
-      bagsData = [0, 30, 120, 0, 0, 0];
+      labels = ['6 AM - 9 AM', '9 AM - 12 PM', '12 PM - 3 PM', '3 PM - 6 PM', '6 PM - 9 PM', '9 PM+'];
+      salesData = [0, 0, 0, 0, 0, 0];
+      bagsData = [0, 0, 0, 0, 0, 0];
+
+      const todaySales = sales.filter(s => s.saleDate === todayStr);
+      todaySales.forEach((sale, idx) => {
+        const slot = idx % 6;
+        salesData[slot] += Number(sale.totalAmount) || 0;
+        bagsData[slot] += Number(sale.numberOfBags) || 0;
+      });
     } else if (salesFilter === 'weekly') {
-      labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      salesData = [39000, 0, 53250, 29600, 114000, 57450, 0];
-      bagsData = [100, 0, 150, 80, 300, 150, 0];
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 86400000);
+        const dStr = d.toISOString().split('T')[0];
+        const label = `${dayNames[d.getDay()]} (${d.getDate()}/${d.getMonth() + 1})`;
+        labels.push(label);
+
+        const daySales = sales.filter(s => s.saleDate === dStr);
+        const dayRevenue = daySales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
+        const dayBags = daySales.reduce((sum, s) => sum + (Number(s.numberOfBags) || 0), 0);
+        salesData.push(dayRevenue);
+        bagsData.push(dayBags);
+      }
     } else if (salesFilter === 'monthly') {
       labels = ['Week 1 (1-7)', 'Week 2 (8-14)', 'Week 3 (15-21)', 'Week 4 (22-28)', 'Week 5 (29-31)'];
-      salesData = [92250, 201050, 0, 0, 0];
-      bagsData = [250, 500, 0, 0, 0];
+      salesData = [0, 0, 0, 0, 0];
+      bagsData = [0, 0, 0, 0, 0];
+
+      const currentMonthPrefix = todayStr.slice(0, 7);
+      const monthSales = sales.filter(s => s.saleDate && s.saleDate.startsWith(currentMonthPrefix));
+
+      monthSales.forEach(s => {
+        const day = parseInt(s.saleDate.split('-')[2], 10) || 1;
+        let weekIdx = 0;
+        if (day <= 7) weekIdx = 0;
+        else if (day <= 14) weekIdx = 1;
+        else if (day <= 21) weekIdx = 2;
+        else if (day <= 28) weekIdx = 3;
+        else weekIdx = 4;
+
+        salesData[weekIdx] += Number(s.totalAmount) || 0;
+        bagsData[weekIdx] += Number(s.numberOfBags) || 0;
+      });
     } else {
-      labels = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
-      salesData = [180000, 240000, 310000, 290000, 340000, 293300, 0, 0, 0, 0, 0, 0];
-      bagsData = [500, 650, 800, 750, 900, 780, 0, 0, 0, 0, 0, 0];
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      labels = monthNames;
+      salesData = new Array(12).fill(0);
+      bagsData = new Array(12).fill(0);
+
+      const currentYearPrefix = todayStr.slice(0, 4);
+      const yearSales = sales.filter(s => s.saleDate && s.saleDate.startsWith(currentYearPrefix));
+
+      yearSales.forEach(s => {
+        const m = parseInt(s.saleDate.split('-')[1], 10) - 1;
+        if (m >= 0 && m < 12) {
+          salesData[m] += Number(s.totalAmount) || 0;
+          bagsData[m] += Number(s.numberOfBags) || 0;
+        }
+      });
     }
 
     return {
@@ -128,16 +176,17 @@ export const Dashboard = () => {
         ]
       },
       doughnutData: {
-        labels: inventory.slice(0, 5).map(i => i.brandName),
+        labels: inventory.length > 0 ? inventory.slice(0, 6).map(i => i.brandName) : ['No Stock Available'],
         datasets: [
           {
-            data: inventory.slice(0, 5).map(i => i.bagsInStock),
+            data: inventory.length > 0 ? inventory.slice(0, 6).map(i => i.bagsInStock) : [0],
             backgroundColor: [
               '#2563eb', // UltraTech blue
               '#f59e0b', // Ambuja gold
               '#dc2626', // ACC red
               '#10b981', // Shree emerald
               '#8b5cf6', // Dalmia purple
+              '#06b6d4', // Cyan
             ],
             borderWidth: isDark ? 2 : 1,
             borderColor: isDark ? '#111827' : '#ffffff'
