@@ -135,7 +135,7 @@ export const LoginModal = () => {
               />
               <span>Remember Login</span>
             </label>
-            <span className="text-[11px] text-slate-400">Er. Raj Thakur</span>
+            <span className="text-[11px] text-slate-400">Mr. Raj Thakur</span>
           </div>
 
           <button
