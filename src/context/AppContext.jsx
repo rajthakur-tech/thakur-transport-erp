@@ -130,16 +130,9 @@ export const AppProvider = ({ children }) => {
     const enteredPwd = (password || '').trim();
     const currentAdminPwd = (adminPassword || 'admin123').trim();
 
-    const isUserValid =
-      enteredUser === currentAdminUser ||
-      enteredUser === 'admin' ||
-      enteredUser === 'raj' ||
-      enteredUser === 'raj thakur';
-
-    const isPasswordValid =
-      enteredPwd === currentAdminPwd ||
-      enteredPwd === 'admin123' ||
-      enteredPwd === 'admin';
+    // Strict validation: Only the active username & active password are valid
+    const isUserValid = enteredUser === currentAdminUser;
+    const isPasswordValid = enteredPwd === currentAdminPwd;
 
     if (isUserValid && isPasswordValid) {
       const loggedUser = {
@@ -170,10 +163,9 @@ export const AppProvider = ({ children }) => {
   const changeAdminUsername = (currentPwd, newUsername) => {
     const enteredPwd = (currentPwd || '').trim();
     const currentAdminPwd = (adminPassword || 'admin123').trim();
-    const isPwdCorrect = enteredPwd === currentAdminPwd || enteredPwd === 'admin123' || enteredPwd === 'admin';
 
-    if (!isPwdCorrect) {
-      return { success: false, error: 'Current password verification failed. Please enter correct password.' };
+    if (enteredPwd !== currentAdminPwd) {
+      return { success: false, error: 'Current password verification failed. Please enter your correct current password.' };
     }
     const cleanUser = (newUsername || '').trim();
     if (!cleanUser || cleanUser.length < 3) {
@@ -187,10 +179,9 @@ export const AppProvider = ({ children }) => {
   const changeAdminPassword = (currentPwd, newPwd) => {
     const enteredPwd = (currentPwd || '').trim();
     const currentAdminPwd = (adminPassword || 'admin123').trim();
-    const isPwdCorrect = enteredPwd === currentAdminPwd || enteredPwd === 'admin123' || enteredPwd === 'admin';
 
-    if (!isPwdCorrect) {
-      return { success: false, error: 'Current password is incorrect.' };
+    if (enteredPwd !== currentAdminPwd) {
+      return { success: false, error: 'Current password is incorrect. Please enter your existing active password.' };
     }
     const cleanNewPwd = (newPwd || '').trim();
     if (!cleanNewPwd || cleanNewPwd.length < 4) {
