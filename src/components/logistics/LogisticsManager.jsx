@@ -17,7 +17,8 @@ import {
   X,
   FileText,
   Navigation,
-  Edit2
+  Edit2,
+  Trash2
 } from 'lucide-react';
 
 export const LogisticsManager = () => {
@@ -25,6 +26,7 @@ export const LogisticsManager = () => {
     trucks,
     addTruck,
     updateTruck,
+    deleteTruck,
     companyOrders,
     setActiveTab
   } = useApp();
@@ -172,12 +174,22 @@ export const LogisticsManager = () => {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleOpenEdit(truck)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleOpenEdit(truck)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition"
+                      title="Edit Truck/Driver Details"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteTruck(truck.id)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition"
+                      title="Delete Truck Entry"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Status Badge */}

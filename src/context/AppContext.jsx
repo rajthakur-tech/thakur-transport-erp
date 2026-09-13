@@ -424,6 +424,15 @@ export const AppProvider = ({ children }) => {
     showToast(`Order status updated to "${newStatus}"`, 'info');
   };
 
+  const deleteCompanyOrder = (orderId) => {
+    const orderToDelete = companyOrders.find(o => o.id === orderId);
+    if (!orderToDelete) return;
+    if (window.confirm(`Are you sure you want to delete order "${orderToDelete.orderNumber}"?`)) {
+      setCompanyOrders(prev => prev.filter(o => o.id !== orderId));
+      showToast(`Company Order ${orderToDelete.orderNumber} deleted`, 'info');
+    }
+  };
+
   const addTruck = (truckData) => {
     const newTruck = {
       ...truckData,
@@ -436,6 +445,55 @@ export const AppProvider = ({ children }) => {
   const updateTruck = (id, updatedData) => {
     setTrucks(prev => prev.map(t => t.id === id ? { ...t, ...updatedData } : t));
     showToast('Logistics record updated', 'success');
+  };
+
+  const deleteTruck = (truckId) => {
+    const truckToDelete = trucks.find(t => t.id === truckId);
+    if (!truckToDelete) return;
+    if (window.confirm(`Are you sure you want to delete truck "${truckToDelete.truckNumber}"?`)) {
+      setTrucks(prev => prev.filter(t => t.id !== truckId));
+      showToast(`Truck ${truckToDelete.truckNumber} deleted`, 'info');
+    }
+  };
+
+  const addInventoryItem = (itemData) => {
+    const brandId = `b_${Date.now()}`;
+    const newBrand = {
+      id: brandId,
+      name: itemData.brandName,
+      code: itemData.code || itemData.brandName.slice(0, 3).toUpperCase(),
+      type: itemData.type || 'PPC 53 Grade',
+      unitPrice: Number(itemData.unitPrice) || 380,
+      costPrice: Number(itemData.costPrice) || 340,
+      minStockAlert: Number(itemData.minStockAlert) || 100
+    };
+    const newInv = {
+      brandId: brandId,
+      brandName: itemData.brandName,
+      bagsInStock: Number(itemData.bagsInStock) || 0,
+      damagedBags: Number(itemData.damagedBags) || 0,
+      minStockAlert: Number(itemData.minStockAlert) || 100
+    };
+    setBrands(prev => [...prev, newBrand]);
+    setInventory(prev => [...prev, newInv]);
+    showToast(`New stock brand "${itemData.brandName}" added!`, 'success');
+  };
+
+  const deleteInventoryItem = (brandIdOrName) => {
+    const itemToDelete = inventory.find(i => i.brandId === brandIdOrName || i.brandName === brandIdOrName);
+    if (!itemToDelete) return;
+    if (window.confirm(`Are you sure you want to delete "${itemToDelete.brandName}" from inventory stock?`)) {
+      setInventory(prev => prev.filter(i => i.brandId !== brandIdOrName && i.brandName !== brandIdOrName));
+      setBrands(prev => prev.filter(b => b.id !== brandIdOrName && b.name !== itemToDelete.brandName));
+      showToast(`Inventory item "${itemToDelete.brandName}" deleted`, 'info');
+    }
+  };
+
+  const deleteStockLog = (logId) => {
+    if (window.confirm('Delete this stock movement audit log entry?')) {
+      setStockLogs(prev => prev.filter(log => log.id !== logId));
+      showToast('Stock audit log removed', 'info');
+    }
   };
 
   // --- Backup & Restore ---
@@ -684,14 +742,19 @@ export const AppProvider = ({ children }) => {
     stockLogs,
     adjustStock,
     recordDamagedBags,
+    addInventoryItem,
+    deleteInventoryItem,
+    deleteStockLog,
 
     companyOrders,
     addCompanyOrder,
     updateOrderStatus,
+    deleteCompanyOrder,
 
     trucks,
     addTruck,
     updateTruck,
+    deleteTruck,
 
     sales,
     addSale,
