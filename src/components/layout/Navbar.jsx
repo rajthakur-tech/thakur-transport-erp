@@ -19,6 +19,7 @@ import {
 export const Navbar = ({ toggleSidebar }) => {
   const {
     currentUser,
+    adminUsername,
     logout,
     theme,
     setTheme,
@@ -165,8 +166,8 @@ export const Navbar = ({ toggleSidebar }) => {
               onMouseLeave={() => setIsProfileOpen(false)}
             >
               <div className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
-                <p className="text-xs font-bold text-slate-900 dark:text-white">{currentUser?.name || 'Mr. Raj Thakur'}</p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Username: admin</p>
+                <p className="text-xs font-bold text-slate-900 dark:text-white">{currentUser?.name || settings?.ownerName || 'Mr. Raj Thakur'}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Username: <span className="font-mono font-semibold">{currentUser?.userId || adminUsername || 'admin'}</span></p>
                 <div className="mt-1.5 inline-block rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                   Sole Administrator
                 </div>

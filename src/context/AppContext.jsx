@@ -40,6 +40,7 @@ export const AppProvider = ({ children }) => {
 
   // --- Core States ---
   const [currentUser, setCurrentUser] = useState(loadSessionUser);
+  const [adminUsername, setAdminUsername] = useState(() => loadState('adminUsername', 'admin'));
   const [adminPassword, setAdminPassword] = useState(() => loadState('adminPassword', 'admin123'));
 
   const [customers, setCustomers] = useState(() => loadState('customers', INITIAL_CUSTOMERS));
@@ -85,6 +86,10 @@ export const AppProvider = ({ children }) => {
   }, [currentUser]);
 
   useEffect(() => {
+    localStorage.setItem(STORAGE_PREFIX + 'adminUsername', JSON.stringify(adminUsername));
+  }, [adminUsername]);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_PREFIX + 'adminPassword', JSON.stringify(adminPassword));
   }, [adminPassword]);
 
@@ -121,26 +126,27 @@ export const AppProvider = ({ children }) => {
   // --- Auth Handlers ---
   const login = (userId, password) => {
     const enteredUser = (userId || '').trim().toLowerCase();
-    const isUserValid = enteredUser === 'admin' || enteredUser === 'raj' || enteredUser === 'raj thakur';
-    const isPasswordValid = password === adminPassword || password === 'admin123' || password === 'admin';
+    const currentAdminUser = (adminUsername || 'admin').trim().toLowerCase();
+    const isUserValid = enteredUser === currentAdminUser || enteredUser === 'admin';
+    const isPasswordValid = password === adminPassword;
 
     if (isUserValid && isPasswordValid) {
       const loggedUser = {
         id: 'USR-1',
-        userId: 'admin',
-        name: 'Raj Thakur (Owner)',
+        userId: adminUsername,
+        name: settings?.ownerName || 'Raj Thakur (Owner)',
         role: 'Admin',
-        mobile: '9835012345',
-        email: 'admin@tcr.com',
+        mobile: settings?.contactPhone || '9835012345',
+        email: settings?.email || 'admin@tcr.com',
         isAuthenticated: true,
         lastLogin: new Date().toISOString()
       };
       setCurrentUser(loggedUser);
       sessionStorage.setItem(STORAGE_PREFIX + 'session_user', JSON.stringify(loggedUser));
-      showToast('Welcome back, Raj Thakur!', 'success');
+      showToast(`Welcome back, ${settings?.ownerName || 'Raj Thakur'}!`, 'success');
       return { success: true };
     }
-    return { success: false, error: 'Invalid Admin Username or Password. Please try again.' };
+    return { success: false, error: 'Invalid Username or Password. Please try again.' };
   };
 
   const logout = () => {
@@ -150,15 +156,37 @@ export const AppProvider = ({ children }) => {
     showToast('Logged out successfully', 'info');
   };
 
+  const changeAdminUsername = (currentPwd, newUsername) => {
+    if (currentPwd !== adminPassword) {
+      return { success: false, error: 'Current password verification failed. Please enter correct password.' };
+    }
+    const cleanUser = (newUsername || '').trim();
+    if (!cleanUser || cleanUser.length < 3) {
+      return { success: false, error: 'New username must be at least 3 characters long.' };
+    }
+    setAdminUsername(cleanUser);
+    showToast(`Admin username changed to "${cleanUser}"!`, 'success');
+    return { success: true };
+  };
+
   const changeAdminPassword = (currentPwd, newPwd) => {
-    if (currentPwd !== adminPassword && currentPwd !== 'admin123' && currentPwd !== 'admin') {
-      return { success: false, error: 'Current password is incorrect' };
+    if (currentPwd !== adminPassword) {
+      return { success: false, error: 'Current password is incorrect.' };
     }
     if (!newPwd || newPwd.length < 4) {
-      return { success: false, error: 'New password must be at least 4 characters long' };
+      return { success: false, error: 'New password must be at least 4 characters long.' };
     }
     setAdminPassword(newPwd);
     showToast('Admin password changed successfully!', 'success');
+    return { success: true };
+  };
+
+  const resetAdminPasswordViaOtp = (newPwd) => {
+    if (!newPwd || newPwd.length < 4) {
+      return { success: false, error: 'New password must be at least 4 characters long.' };
+    }
+    setAdminPassword(newPwd);
+    showToast('Password reset successfully via OTP! Please login with your new password.', 'success');
     return { success: true };
   };
 
@@ -725,9 +753,14 @@ export const AppProvider = ({ children }) => {
   const value = {
     // Auth & User
     currentUser,
+    adminUsername,
+    setAdminUsername,
+    adminPassword,
     login,
     logout,
+    changeAdminUsername,
     changeAdminPassword,
+    resetAdminPasswordViaOtp,
 
     // Entities
     customers,

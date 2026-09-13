@@ -22,11 +22,13 @@ export const SettingsManager = () => {
     settings,
     setSettings,
     currentUser,
+    adminUsername,
     exportDatabaseJSON,
     importDatabaseJSON,
     resetToFactoryDefaults,
     theme,
     setTheme,
+    changeAdminUsername,
     changeAdminPassword
   } = useApp();
 
@@ -41,13 +43,20 @@ export const SettingsManager = () => {
     setBizForm({ ...settings });
   }, [settings]);
 
+  // Username change state
+  const [usernameState, setUsernameState] = useState({
+    newUsername: '',
+    currentPassword: ''
+  });
+  const [userMsg, setUserMsg] = useState({ text: '', isError: false });
+
   // Password change state
   const [passwordState, setPasswordState] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
-  const [pwdMessage, setPwdMessage] = useState('');
+  const [pwdMsg, setPwdMsg] = useState({ text: '', isError: false });
 
   const handleSaveBiz = (e) => {
     e.preventDefault();
@@ -68,24 +77,45 @@ export const SettingsManager = () => {
     reader.readAsText(file);
   };
 
+  const handleUsernameChange = (e) => {
+    e.preventDefault();
+    setUserMsg({ text: '', isError: false });
+
+    if (!usernameState.newUsername.trim()) {
+      setUserMsg({ text: 'Please enter a valid username.', isError: true });
+      return;
+    }
+
+    const res = changeAdminUsername(usernameState.currentPassword, usernameState.newUsername);
+    if (res.success) {
+      setUserMsg({ text: `✓ Admin Username updated to "${usernameState.newUsername.trim()}".`, isError: false });
+      setUsernameState({ newUsername: '', currentPassword: '' });
+    } else {
+      setUserMsg({ text: res.error || 'Failed to update username.', isError: true });
+    }
+    setTimeout(() => setUserMsg({ text: '', isError: false }), 5000);
+  };
+
   const handlePasswordChange = (e) => {
     e.preventDefault();
+    setPwdMsg({ text: '', isError: false });
+
     if (passwordState.newPassword !== passwordState.confirmPassword) {
-      setPwdMessage('New passwords do not match.');
+      setPwdMsg({ text: 'New passwords do not match.', isError: true });
       return;
     }
     if (passwordState.newPassword.length < 4) {
-      setPwdMessage('Password must be at least 4 characters.');
+      setPwdMsg({ text: 'Password must be at least 4 characters.', isError: true });
       return;
     }
     const res = changeAdminPassword(passwordState.currentPassword, passwordState.newPassword);
     if (res.success) {
-      setPwdMessage('✓ Admin Password updated successfully.');
+      setPwdMsg({ text: '✓ Admin Password updated successfully.', isError: false });
       setPasswordState({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } else {
-      setPwdMessage(res.error || 'Failed to update password.');
+      setPwdMsg({ text: res.error || 'Current password incorrect.', isError: true });
     }
-    setTimeout(() => setPwdMessage(''), 4000);
+    setTimeout(() => setPwdMsg({ text: '', isError: false }), 5000);
   };
 
   return (
@@ -365,68 +395,161 @@ export const SettingsManager = () => {
             </div>
           </div>
 
-          {/* Security & Password */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800 mb-4">
-              <Lock className="h-5 w-5 text-amber-600" />
-              <h3 className="font-heading text-base font-bold text-slate-900 dark:text-white">
-                Admin Password
-              </h3>
+          {/* Security & Credentials */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-6">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+              <ShieldCheck className="h-5 w-5 text-blue-600" />
+              <div>
+                <h3 className="font-heading text-base font-bold text-slate-900 dark:text-white">
+                  Security & Admin Credentials
+                </h3>
+                <p className="text-[11px] text-slate-500">Manage owner username, password & OTP reset phone.</p>
+              </div>
             </div>
 
-            {pwdMessage && (
-              <div className="mb-3 rounded-xl bg-blue-50 p-2 text-xs font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
-                {pwdMessage}
+            {/* Registered Phone for OTP Info Box */}
+            <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs dark:border-blue-900/50 dark:bg-blue-950/30">
+              <div className="flex items-center gap-1.5 font-bold text-blue-900 dark:text-blue-300">
+                <Smartphone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span>Password Reset OTP Phone</span>
               </div>
-            )}
+              <p className="mt-1 font-mono font-bold text-slate-900 dark:text-white">
+                +91 {settings?.contactPhone || '9835012345'}
+              </p>
+              <p className="mt-0.5 text-[10px] text-blue-700 dark:text-blue-400">
+                (When clicking "Forgot Password" on login screen, verification OTP is delivered to this number.)
+              </p>
+            </div>
 
-            <form onSubmit={handlePasswordChange} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  Current Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={passwordState.currentPassword}
-                  onChange={(e) => setPasswordState({ ...passwordState, currentPassword: e.target.value })}
-                  className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={passwordState.newPassword}
-                  onChange={(e) => setPasswordState({ ...passwordState, newPassword: e.target.value })}
-                  className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                />
+            {/* Change Username Section */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Change Admin Username
+                </span>
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  Current: {adminUsername || 'admin'}
+                </span>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  Confirm Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={passwordState.confirmPassword}
-                  onChange={(e) => setPasswordState({ ...passwordState, confirmPassword: e.target.value })}
-                  className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                />
+              {userMsg.text && (
+                <div className={`mb-3 rounded-xl p-2.5 text-xs font-semibold ${
+                  userMsg.isError
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/40'
+                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/40'
+                }`}>
+                  {userMsg.text}
+                </div>
+              )}
+
+              <form onSubmit={handleUsernameChange} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    New Username
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter new username"
+                    value={usernameState.newUsername}
+                    onChange={(e) => setUsernameState({ ...usernameState, newUsername: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Current Password (for Verification)
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter your current password"
+                    value={usernameState.currentPassword}
+                    onChange={(e) => setUsernameState({ ...usernameState, currentPassword: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-blue-600 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 hover:bg-blue-700 transition"
+                >
+                  Save New Username
+                </button>
+              </form>
+            </div>
+
+            {/* Change Password Section */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 mb-3">
+                <Lock className="h-4 w-4 text-amber-500" />
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Change Admin Password
+                </span>
               </div>
 
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900"
-              >
-                Update Password
-              </button>
-            </form>
+              {pwdMsg.text && (
+                <div className={`mb-3 rounded-xl p-2.5 text-xs font-semibold ${
+                  pwdMsg.isError
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/40'
+                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/40'
+                }`}>
+                  {pwdMsg.text}
+                </div>
+              )}
+
+              <form onSubmit={handlePasswordChange} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Current password"
+                    value={passwordState.currentPassword}
+                    onChange={(e) => setPasswordState({ ...passwordState, currentPassword: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="New password (min 4 characters)"
+                    value={passwordState.newPassword}
+                    onChange={(e) => setPasswordState({ ...passwordState, newPassword: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Confirm new password"
+                    value={passwordState.confirmPassword}
+                    onChange={(e) => setPasswordState({ ...passwordState, confirmPassword: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 transition"
+                >
+                  Update Password
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
