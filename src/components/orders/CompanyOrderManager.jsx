@@ -23,7 +23,8 @@ import {
   Calendar,
   Layers,
   ChevronDown,
-  Trash2
+  Trash2,
+  Warehouse
 } from 'lucide-react';
 
 export const CompanyOrderManager = () => {
@@ -33,6 +34,7 @@ export const CompanyOrderManager = () => {
     updateOrderStatus,
     deleteCompanyOrder,
     brands,
+    godowns,
     currentUser
   } = useApp();
 
@@ -45,9 +47,12 @@ export const CompanyOrderManager = () => {
   const [newStatusValue, setNewStatusValue] = useState('Delivered');
 
   // Form State
+  const defaultGodown = godowns[0] || { id: 'GD-1', name: 'Main Depot (Barghat Yard)' };
   const initialForm = {
     companyName: 'UltraTech Cement Ltd',
     cementBrand: 'UltraTech Cement',
+    godownId: defaultGodown.id,
+    godownName: defaultGodown.name,
     quantity: 500,
     rate: 340,
     orderDate: new Date().toISOString().split('T')[0],
@@ -337,6 +342,29 @@ export const CompanyOrderManager = () => {
                   >
                     {brands.map(b => (
                       <option key={b.id} value={b.name}>{b.name} ({b.type})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                    <Warehouse className="h-3.5 w-3.5 text-blue-500" />
+                    <span>Receiving Godown *</span>
+                  </label>
+                  <select
+                    value={formData.godownId}
+                    onChange={(e) => {
+                      const g = godowns.find(item => item.id === e.target.value);
+                      setFormData(prev => ({
+                        ...prev,
+                        godownId: e.target.value,
+                        godownName: g?.name || 'Main Depot'
+                      }));
+                    }}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    {godowns.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
                     ))}
                   </select>
                 </div>

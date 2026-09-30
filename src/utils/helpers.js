@@ -77,40 +77,104 @@ export const generateInvoiceNumber = (existingSalesCount = 0) => {
   const currentYear = new Date().getFullYear().toString().slice(-2);
   const nextYear = (new Date().getFullYear() + 1).toString().slice(-2);
   const seq = 1000 + existingSalesCount + 1;
-  return `TCR/${currentYear}-${nextYear}/${seq}`;
+  return `TT/${currentYear}-${nextYear}/${seq}`;
 };
 
-export const generateOrderNumber = (brandCode = 'TCR', count = 0) => {
+export const generateOrderNumber = (brandCode = 'TT', count = 0) => {
   const seq = 10000 + count + 1;
-  return `${brandCode}-PAT-${seq}`;
+  return `${brandCode}-ORD-${seq}`;
 };
 
-export const generateWhatsAppReminder = (customerName, pendingBalance, dueDate, businessName = 'Thakur Cement Record') => {
-  const message = `Namaste ${customerName} ji 🙏,\n\nThis is a gentle payment reminder from *${businessName}*.\n\n` +
-    `Your outstanding cement balance is *${formatINR(pendingBalance)}*.\n` +
-    `Due Date: *${formatDate(dueDate)}*.\n\n` +
-    `Kindly clear the pending dues via UPI or Bank Transfer.\n` +
-    `For any query or ledger reconciliation, please call us.\n\n` +
-    `Thank you for your business! 🏗️`;
+export const generateTransferNumber = (count = 0) => {
+  const year = new Date().getFullYear();
+  const seq = 100 + count + 1;
+  return `TRF-${year}-${seq}`;
+};
+
+export const getUpiPaymentUrl = (upiId, payeeName, amount, note) => {
+  const cleanUpi = (upiId || 'thakurtransport@sbi').trim();
+  const cleanName = encodeURIComponent(payeeName || 'Thakur Transport');
+  const cleanAmount = Number(amount) > 0 ? Number(amount).toFixed(2) : '0';
+  const cleanNote = encodeURIComponent(note || 'Payment to Thakur Transport');
+  return `upi://pay?pa=${cleanUpi}&pn=${cleanName}&am=${cleanAmount}&cu=INR&tn=${cleanNote}`;
+};
+
+export const generateWhatsAppReminder = (customerName, pendingBalance, dueDate, settings, style = 'hindi') => {
+  const bizName = settings?.businessName || 'Thakur Transport';
+  const phone = settings?.contactPhone || '+91 98350 12345';
+  const upi = settings?.upiId || 'thakurtransport@sbi';
+  const upiUrl = getUpiPaymentUrl(upi, bizName, pendingBalance, `Payment from ${customerName}`);
+
+  let message = '';
+  if (style === 'hindi') {
+    message = `*${bizName} - भुगतान स्मरण (Payment Reminder)* 🙏\n\n` +
+      `नमस्ते *${customerName}* जी,\n\n` +
+      `आपके सीमेंट खाते की कुल बकाया राशि (Outstanding Balance): *${formatINR(pendingBalance)}* है।\n` +
+      (dueDate ? `भुगतान की नियत तिथि (Due Date): *${formatDate(dueDate)}*\n\n` : '\n') +
+      `📲 *Online Payment (UPI/GPay/PhonePe):*\n` +
+      `UPI ID: \`${upi}\`\n\n` +
+      `💳 *Direct UPI Pay Link:* ${upiUrl}\n\n` +
+      `कृपया समय पर भुगतान करें। किसी भी जानकारी या लेज़र मिलान के लिए संपर्क करें:\n` +
+      `📞 ${phone}\n\n` +
+      `धन्यवाद! 🏗️`;
+  } else {
+    message = `*${bizName} - Payment Reminder* 🙏\n\n` +
+      `Dear *${customerName}*,\n\n` +
+      `This is a friendly reminder regarding your outstanding balance of *${formatINR(pendingBalance)}* with ${bizName}.\n` +
+      (dueDate ? `Due Date: *${formatDate(dueDate)}*\n\n` : '\n') +
+      `📲 *Pay via UPI (GPay / PhonePe / Paytm):*\n` +
+      `UPI ID: \`${upi}\`\n\n` +
+      `💳 *Direct Pay Link:* ${upiUrl}\n\n` +
+      `For any query, please call: ${phone}\n\n` +
+      `Thank you for your business! 🏗️`;
+  }
   return encodeURIComponent(message);
 };
 
-export const generateWhatsAppInvoice = (invoice, settings) => {
-  const message = `*${settings?.businessName || 'Thakur Cement Record (TCR)'}*\n` +
-    `📄 *INVOICE: ${invoice.invoiceNumber}*\n` +
-    `Date: ${formatDate(invoice.saleDate)}\n` +
-    `Customer: ${invoice.customerName}\n` +
-    `--------------------------------\n` +
-    `Brand: *${invoice.cementBrand}*\n` +
-    `Quantity: *${invoice.numberOfBags} Bags*\n` +
-    `Rate: ${formatINR(invoice.pricePerBag)}/Bag\n` +
-    `Total Amount: *${formatINR(invoice.totalAmount)}*\n` +
-    `Payment Type: ${invoice.paymentType}\n` +
-    `Paid: ${formatINR(invoice.paidAmount)}\n` +
-    `Balance Remaining: *${formatINR(invoice.balanceAmount)}*\n` +
-    `--------------------------------\n` +
-    `Contact: ${settings?.contactPhone || '+91 98350 12345'}\n` +
-    `GSTIN: ${settings?.gstNumber || '10AAHFT8902P1ZT'}\n` +
-    `Thank you for trusting TCR! 🙏`;
+export const generateWhatsAppInvoice = (invoice, settings, style = 'hindi') => {
+  const bizName = settings?.businessName || 'Thakur Transport';
+  const phone = settings?.contactPhone || '+91 98350 12345';
+  const upi = settings?.upiId || 'thakurtransport@sbi';
+  const dueAmt = invoice.balanceAmount > 0 ? invoice.balanceAmount : invoice.totalAmount;
+  const upiUrl = getUpiPaymentUrl(upi, bizName, dueAmt, `Invoice ${invoice.invoiceNumber}`);
+
+  let message = '';
+  if (style === 'hindi') {
+    message = `*${bizName}* 🚚\n` +
+      `📄 *बिल / रसीद संख्या:* ${invoice.invoiceNumber}\n` +
+      `📅 दिनांक: ${formatDate(invoice.saleDate)}\n` +
+      `👤 ग्राहक (Customer): *${invoice.customerName}*\n` +
+      `--------------------------------\n` +
+      `📦 माल: *${invoice.cementBrand}*\n` +
+      `🔢 मात्रा: *${invoice.numberOfBags} बोरी (Bags)*\n` +
+      `💰 दर (Rate): ${formatINR(invoice.pricePerBag)} / बोरी\n` +
+      `💵 कुल राशि (Total): *${formatINR(invoice.totalAmount)}*\n` +
+      `💳 भुगतान प्रकार: ${invoice.paymentType}\n` +
+      `✅ जमा राशि (Paid): ${formatINR(invoice.paidAmount)}\n` +
+      `⚠️ बकाया राशि (Balance): *${formatINR(invoice.balanceAmount)}*\n` +
+      (invoice.dueDate && invoice.balanceAmount > 0 ? `📅 अंतिम तिथि (Due Date): ${formatDate(invoice.dueDate)}\n` : '') +
+      `--------------------------------\n` +
+      (invoice.balanceAmount > 0 ? `📲 *UPI द्वारा भुगतान करें:* \`${upi}\`\n💳 *UPI Direct Pay:* ${upiUrl}\n\n` : '') +
+      `📞 संपर्क: ${phone}\n` +
+      `📍 पता: ${settings?.address || 'Barghat, Seoni (M.P.)'}\n` +
+      `ठाकुर ट्रांसपोर्ट पर भरोसा करने के लिए धन्यवाद! 🙏`;
+  } else {
+    message = `*${bizName}* 🚚\n` +
+      `📄 *TAX INVOICE / BILL: ${invoice.invoiceNumber}*\n` +
+      `📅 Date: ${formatDate(invoice.saleDate)}\n` +
+      `👤 Customer: *${invoice.customerName}*\n` +
+      `--------------------------------\n` +
+      `📦 Item: *${invoice.cementBrand}*\n` +
+      `🔢 Quantity: *${invoice.numberOfBags} Bags*\n` +
+      `💰 Rate: ${formatINR(invoice.pricePerBag)} / Bag\n` +
+      `💵 Grand Total: *${formatINR(invoice.totalAmount)}*\n` +
+      `💳 Payment Mode: ${invoice.paymentType}\n` +
+      `✅ Paid Amount: ${formatINR(invoice.paidAmount)}\n` +
+      `⚠️ Balance Remaining: *${formatINR(invoice.balanceAmount)}*\n` +
+      `--------------------------------\n` +
+      (invoice.balanceAmount > 0 ? `📲 *Pay via UPI:* \`${upi}\`\n💳 *UPI Direct Link:* ${upiUrl}\n\n` : '') +
+      `📞 Contact: ${phone}\n` +
+      `Thank you for choosing ${bizName}! 🙏`;
+  }
   return encodeURIComponent(message);
 };

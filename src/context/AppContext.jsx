@@ -3,6 +3,7 @@ import {
   INITIAL_BRANDS,
   INITIAL_CUSTOMERS,
   INITIAL_INVENTORY,
+  INITIAL_GODOWNS,
   INITIAL_ORDERS,
   INITIAL_TRUCKS,
   INITIAL_SALES,
@@ -13,7 +14,7 @@ import {
 
 const AppContext = createContext();
 
-const STORAGE_PREFIX = 'TCR_APP_v1_';
+const STORAGE_PREFIX = 'TT_APP_v1_';
 
 export const AppProvider = ({ children }) => {
   // --- LocalStorage persistence helpers ---
@@ -43,13 +44,31 @@ export const AppProvider = ({ children }) => {
   const [adminUsername, setAdminUsername] = useState(() => loadState('adminUsername', 'admin'));
   const [adminPassword, setAdminPassword] = useState(() => loadState('adminPassword', 'admin123'));
 
+  const [godowns, setGodowns] = useState(() => loadState('godowns', INITIAL_GODOWNS));
   const [customers, setCustomers] = useState(() => loadState('customers', INITIAL_CUSTOMERS));
   const [brands, setBrands] = useState(() => loadState('brands', INITIAL_BRANDS));
   const [inventory, setInventory] = useState(() => loadState('inventory', INITIAL_INVENTORY));
   const [stockLogs, setStockLogs] = useState(() => loadState('stockLogs', [
-    { id: 'LOG-1', date: '2026-09-06', brandName: 'UltraTech Cement', type: 'Stock In', bags: 600, reference: 'ORD-2026-089', notes: 'Supplier delivery received' },
-    { id: 'LOG-2', date: '2026-09-08', brandName: 'ACC Concrete+', type: 'Stock Out', bags: 80, reference: 'INV-2026-1042', notes: 'Customer sale' },
-    { id: 'LOG-3', date: '2026-09-10', brandName: 'UltraTech Cement', type: 'Stock Out', bags: 120, reference: 'INV-2026-1045', notes: 'Customer sale' }
+    { id: 'LOG-1', date: '2026-09-06', brandName: 'UltraTech Cement', type: 'Stock In', bags: 600, godownId: 'GD-1', godownName: 'Main Depot (Barghat Yard)', reference: 'ORD-2026-089', notes: 'Supplier delivery received' },
+    { id: 'LOG-2', date: '2026-09-08', brandName: 'ACC Concrete+', type: 'Stock Out', bags: 80, godownId: 'GD-1', godownName: 'Main Depot (Barghat Yard)', reference: 'INV-2026-1042', notes: 'Customer sale' },
+    { id: 'LOG-3', date: '2026-09-10', brandName: 'UltraTech Cement', type: 'Stock Out', bags: 120, godownId: 'GD-2', godownName: 'City Godown (Seoni Bypass)', reference: 'INV-2026-1045', notes: 'Customer sale' }
+  ]));
+  const [stockTransfers, setStockTransfers] = useState(() => loadState('stockTransfers', [
+    {
+      id: 'TRF-101',
+      transferNumber: 'TRF/26-27/101',
+      date: '2026-09-09',
+      fromGodownId: 'GD-1',
+      fromGodownName: 'Main Depot (Barghat Yard)',
+      toGodownId: 'GD-2',
+      toGodownName: 'City Godown (Seoni Bypass)',
+      brandName: 'UltraTech Cement',
+      quantity: 100,
+      vehicleNumber: 'MP-28-G-4589',
+      driverName: 'Satish Yadav',
+      status: 'Completed',
+      notes: 'Highway depot replenishment'
+    }
   ]));
   const [companyOrders, setCompanyOrders] = useState(() => loadState('orders', INITIAL_ORDERS));
   const [trucks, setTrucks] = useState(() => loadState('trucks', INITIAL_TRUCKS));
@@ -94,16 +113,18 @@ export const AppProvider = ({ children }) => {
   }, [adminPassword]);
 
   useEffect(() => {
+    localStorage.setItem(STORAGE_PREFIX + 'godowns', JSON.stringify(godowns));
     localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(customers));
     localStorage.setItem(STORAGE_PREFIX + 'brands', JSON.stringify(brands));
     localStorage.setItem(STORAGE_PREFIX + 'inventory', JSON.stringify(inventory));
     localStorage.setItem(STORAGE_PREFIX + 'stockLogs', JSON.stringify(stockLogs));
+    localStorage.setItem(STORAGE_PREFIX + 'stockTransfers', JSON.stringify(stockTransfers));
     localStorage.setItem(STORAGE_PREFIX + 'orders', JSON.stringify(companyOrders));
     localStorage.setItem(STORAGE_PREFIX + 'trucks', JSON.stringify(trucks));
     localStorage.setItem(STORAGE_PREFIX + 'sales', JSON.stringify(sales));
     localStorage.setItem(STORAGE_PREFIX + 'creditPayments', JSON.stringify(creditPayments));
     localStorage.setItem(STORAGE_PREFIX + 'settings', JSON.stringify(settings));
-  }, [customers, brands, inventory, stockLogs, companyOrders, trucks, sales, creditPayments, settings]);
+  }, [godowns, customers, brands, inventory, stockLogs, stockTransfers, companyOrders, trucks, sales, creditPayments, settings]);
 
   // Keyboard shortcut Ctrl+K / Cmd+K for Global Search
   useEffect(() => {
@@ -233,11 +254,27 @@ export const AppProvider = ({ children }) => {
   };
 
   // --- Inventory & Stock Operations ---
-  const adjustStock = (brandName, bagsChange, type, reference = '', notes = '') => {
+  const adjustStock = (brandName, bagsChange, type, reference = '', notes = '', targetGodownId = null) => {
+    const activeGodownId = targetGodownId || godowns[0]?.id || 'GD-1';
+    const godownName = godowns.find(g => g.id === activeGodownId)?.name || 'Main Depot';
+
     setInventory(prev => prev.map(inv => {
       if (inv.brandName === brandName) {
-        const updatedBags = Math.max(0, inv.bagsInStock + bagsChange);
-        return { ...inv, bagsInStock: updatedBags };
+        const updatedTotal = Math.max(0, (Number(inv.bagsInStock) || 0) + bagsChange);
+        const currentGodownStocks = inv.godownStocks ? { ...inv.godownStocks } : {};
+        
+        // Ensure default godowns exist
+        if (currentGodownStocks[activeGodownId] === undefined) {
+          currentGodownStocks[activeGodownId] = Math.max(0, updatedTotal);
+        } else {
+          currentGodownStocks[activeGodownId] = Math.max(0, (Number(currentGodownStocks[activeGodownId]) || 0) + bagsChange);
+        }
+
+        return {
+          ...inv,
+          bagsInStock: updatedTotal,
+          godownStocks: currentGodownStocks
+        };
       }
       return inv;
     }));
@@ -248,42 +285,173 @@ export const AppProvider = ({ children }) => {
       brandName,
       type,
       bags: Math.abs(bagsChange),
+      godownId: activeGodownId,
+      godownName,
       reference,
       notes
     };
     setStockLogs(prev => [newLog, ...prev]);
   };
 
-  const recordDamagedBags = (brandName, damagedCount, notes = '') => {
+  const recordDamagedBags = (brandName, damagedCount, notes = '', targetGodownId = null) => {
+    const activeGodownId = targetGodownId || godowns[0]?.id || 'GD-1';
     setInventory(prev => prev.map(inv => {
       if (inv.brandName === brandName) {
-        const updatedStock = Math.max(0, inv.bagsInStock - damagedCount);
-        const updatedDamaged = (inv.damagedBags || 0) + damagedCount;
-        return { ...inv, bagsInStock: updatedStock, damagedBags: updatedDamaged };
+        const updatedStock = Math.max(0, (Number(inv.bagsInStock) || 0) - damagedCount);
+        const updatedDamaged = (Number(inv.damagedBags) || 0) + damagedCount;
+        const currentGodownStocks = inv.godownStocks ? { ...inv.godownStocks } : {};
+        if (currentGodownStocks[activeGodownId] !== undefined) {
+          currentGodownStocks[activeGodownId] = Math.max(0, (Number(currentGodownStocks[activeGodownId]) || 0) - damagedCount);
+        }
+        return { ...inv, bagsInStock: updatedStock, damagedBags: updatedDamaged, godownStocks: currentGodownStocks };
       }
       return inv;
     }));
 
-    adjustStock(brandName, -damagedCount, 'Damaged', 'DAMAGE-ENTRY', notes || 'Damaged bags recorded');
+    adjustStock(brandName, -damagedCount, 'Damaged', 'DAMAGE-ENTRY', notes || 'Damaged bags recorded', activeGodownId);
     showToast(`${damagedCount} damaged bags recorded for ${brandName}`, 'info');
+  };
+
+  // --- Godowns Management ---
+  const addGodown = (godownData) => {
+    const newId = `GD-${godowns.length + 1}`;
+    const newGodown = {
+      ...godownData,
+      id: newId,
+      code: godownData.code || `GD-0${godowns.length + 1}`,
+      capacity: Number(godownData.capacity) || 3000,
+      isDefault: false
+    };
+    setGodowns(prev => [...prev, newGodown]);
+    showToast(`Godown "${newGodown.name}" added successfully!`, 'success');
+    return newGodown;
+  };
+
+  const updateGodown = (id, updatedData) => {
+    setGodowns(prev => prev.map(g => g.id === id ? { ...g, ...updatedData } : g));
+    showToast('Godown details updated', 'success');
+  };
+
+  const deleteGodown = (id) => {
+    if (godowns.length <= 1) {
+      showToast('Cannot delete the only remaining godown.', 'danger');
+      return;
+    }
+    const gToDelete = godowns.find(g => g.id === id);
+    if (!gToDelete) return;
+
+    if (window.confirm(`Are you sure you want to delete Godown "${gToDelete.name}"?`)) {
+      setGodowns(prev => prev.filter(g => g.id !== id));
+      showToast(`Godown "${gToDelete.name}" removed`, 'info');
+    }
+  };
+
+  // --- Stock Transfer Between Godowns ---
+  const transferStockBetweenGodowns = ({ fromGodownId, toGodownId, brandName, quantity, notes = '', vehicleNumber = '', driverName = '' }) => {
+    const qty = Number(quantity);
+    if (qty <= 0) return { success: false, error: 'Please enter a valid quantity of bags.' };
+    if (fromGodownId === toGodownId) return { success: false, error: 'Source and Destination godowns cannot be identical.' };
+
+    const fromGodown = godowns.find(g => g.id === fromGodownId);
+    const toGodown = godowns.find(g => g.id === toGodownId);
+    const invItem = inventory.find(i => i.brandName === brandName);
+
+    if (!invItem) return { success: false, error: 'Selected cement brand was not found in inventory.' };
+
+    const availableInFrom = (invItem.godownStocks && invItem.godownStocks[fromGodownId]) !== undefined 
+      ? Number(invItem.godownStocks[fromGodownId]) 
+      : Number(invItem.bagsInStock);
+
+    if (availableInFrom < qty) {
+      return {
+        success: false,
+        error: `Insufficient stock in ${fromGodown?.name || 'source godown'}. Available: ${availableInFrom} bags, requested: ${qty} bags.`
+      };
+    }
+
+    // Apply stock transfer in inventory
+    setInventory(prev => prev.map(inv => {
+      if (inv.brandName === brandName) {
+        const curStocks = { ...(inv.godownStocks || {}) };
+        curStocks[fromGodownId] = Math.max(0, ((curStocks[fromGodownId] !== undefined ? curStocks[fromGodownId] : inv.bagsInStock) - qty));
+        curStocks[toGodownId] = (Number(curStocks[toGodownId]) || 0) + qty;
+        return {
+          ...inv,
+          godownStocks: curStocks
+        };
+      }
+      return inv;
+    }));
+
+    const currentYear = new Date().getFullYear().toString().slice(-2);
+    const nextYear = (new Date().getFullYear() + 1).toString().slice(-2);
+    const seq = 100 + stockTransfers.length + 1;
+    const transferNo = `TRF/${currentYear}-${nextYear}/${seq}`;
+
+    const transferRecord = {
+      id: `TRF-${Date.now()}`,
+      transferNumber: transferNo,
+      date: new Date().toISOString().split('T')[0],
+      fromGodownId,
+      fromGodownName: fromGodown?.name || fromGodownId,
+      toGodownId,
+      toGodownName: toGodown?.name || toGodownId,
+      brandName,
+      quantity: qty,
+      vehicleNumber: vehicleNumber || 'Internal Yard Transfer',
+      driverName: driverName || 'Staff',
+      status: 'Completed',
+      notes: notes || 'Inter-godown stock movement'
+    };
+
+    setStockTransfers(prev => [transferRecord, ...prev]);
+
+    // Add movement audit log
+    const newLog = {
+      id: `LOG-${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
+      brandName,
+      type: 'Transfer',
+      bags: qty,
+      godownId: fromGodownId,
+      godownName: `${fromGodown?.name} ➔ ${toGodown?.name}`,
+      reference: transferNo,
+      notes: `Transferred ${qty} bags from ${fromGodown?.name} to ${toGodown?.name}. ${notes}`
+    };
+    setStockLogs(prev => [newLog, ...prev]);
+
+    showToast(`Successfully transferred ${qty} bags of ${brandName} to ${toGodown?.name}!`, 'success');
+    return { success: true, transfer: transferRecord };
   };
 
   // --- Sales & Billing Operations ---
   const addSale = (saleData) => {
+    const currentYear = new Date().getFullYear().toString().slice(-2);
+    const nextYear = (new Date().getFullYear() + 1).toString().slice(-2);
+    const seq = 1000 + sales.length + 1;
+    const invNum = saleData.invoiceNumber || `TT/${currentYear}-${nextYear}/${seq}`;
+
     const newId = `INV-${new Date().getFullYear()}-${1000 + sales.length + 1}`;
+    const selectedGodownId = saleData.godownId || godowns[0]?.id || 'GD-1';
+    const godownObj = godowns.find(g => g.id === selectedGodownId);
+
     const newSale = {
       ...saleData,
       id: newId,
+      invoiceNumber: invNum,
+      godownId: selectedGodownId,
+      godownName: godownObj?.name || 'Main Depot (Barghat Yard)',
       saleDate: saleData.saleDate || new Date().toISOString().split('T')[0]
     };
 
-    // Auto deduct inventory
+    // Auto deduct inventory from selected godown
     adjustStock(
       newSale.cementBrand,
       -Number(newSale.numberOfBags),
       'Stock Out',
       newSale.invoiceNumber,
-      `Sale to ${newSale.customerName}`
+      `Sale to ${newSale.customerName} (from ${newSale.godownName})`,
+      selectedGodownId
     );
 
     // If Credit / Partial, record credit log if paid > 0
@@ -311,13 +479,14 @@ export const AppProvider = ({ children }) => {
     const saleToDelete = sales.find(s => s.id === id);
     if (!saleToDelete) return;
 
-    // Revert stock
+    // Revert stock to the original godown
     adjustStock(
       saleToDelete.cementBrand,
       Number(saleToDelete.numberOfBags),
       'Stock In',
       'REVERSAL',
-      `Cancelled invoice ${saleToDelete.invoiceNumber}`
+      `Cancelled invoice ${saleToDelete.invoiceNumber}`,
+      saleToDelete.godownId || godowns[0]?.id || 'GD-1'
     );
     setSales(prev => prev.filter(s => s.id !== id));
     // Remove linked credit logs if any
@@ -382,21 +551,27 @@ export const AppProvider = ({ children }) => {
   // --- Company Orders & Logistics ---
   const addCompanyOrder = (orderData) => {
     const newId = `ORD-${new Date().getFullYear()}-${100 + companyOrders.length + 1}`;
+    const selectedGodownId = orderData.godownId || godowns[0]?.id || 'GD-1';
+    const godownObj = godowns.find(g => g.id === selectedGodownId);
+
     const newOrder = {
       ...orderData,
       id: newId,
+      godownId: selectedGodownId,
+      godownName: godownObj?.name || 'Main Depot',
       orderDate: orderData.orderDate || new Date().toISOString().split('T')[0]
     };
     setCompanyOrders(prev => [newOrder, ...prev]);
 
-    // If order is Delivered directly, adjust stock
+    // If order is Delivered directly, adjust stock in target godown
     if (newOrder.status === 'Delivered') {
       adjustStock(
         newOrder.cementBrand,
         Number(newOrder.quantity),
         'Stock In',
         newOrder.orderNumber,
-        `Delivered order from ${newOrder.companyName}`
+        `Delivered order from ${newOrder.companyName} at ${newOrder.godownName}`,
+        selectedGodownId
       );
     }
 
@@ -433,7 +608,8 @@ export const AppProvider = ({ children }) => {
         Number(order.quantity),
         'Stock In',
         order.orderNumber,
-        `Delivered from ${order.companyName}`
+        `Delivered from ${order.companyName} at ${order.godownName || 'Main Depot'}`,
+        order.godownId || godowns[0]?.id || 'GD-1'
       );
     }
 
@@ -507,12 +683,17 @@ export const AppProvider = ({ children }) => {
       costPrice: Number(itemData.costPrice) || 340,
       minStockAlert: Number(itemData.minStockAlert) || 100
     };
+    const defaultGodownId = godowns[0]?.id || 'GD-1';
+    const godownDistribution = {};
+    godownDistribution[defaultGodownId] = Number(itemData.bagsInStock) || 0;
+
     const newInv = {
       brandId: brandId,
       brandName: itemData.brandName,
       bagsInStock: Number(itemData.bagsInStock) || 0,
       damagedBags: Number(itemData.damagedBags) || 0,
-      minStockAlert: Number(itemData.minStockAlert) || 100
+      minStockAlert: Number(itemData.minStockAlert) || 100,
+      godownStocks: godownDistribution
     };
     setBrands(prev => [...prev, newBrand]);
     setInventory(prev => [...prev, newInv]);
@@ -541,10 +722,12 @@ export const AppProvider = ({ children }) => {
     const backupData = {
       version: '1.0',
       timestamp: new Date().toISOString(),
+      godowns,
       customers,
       brands,
       inventory,
       stockLogs,
+      stockTransfers,
       companyOrders,
       trucks,
       sales,
@@ -555,7 +738,7 @@ export const AppProvider = ({ children }) => {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `TCR_Backup_${new Date().toISOString().split('T')[0]}.json`);
+    downloadAnchor.setAttribute('download', `TT_Backup_${new Date().toISOString().split('T')[0]}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -566,13 +749,15 @@ export const AppProvider = ({ children }) => {
     try {
       const parsed = JSON.parse(jsonString);
       if (!parsed.customers || !parsed.sales || !parsed.inventory) {
-        throw new Error('Invalid TCR backup schema');
+        throw new Error('Invalid TT backup schema');
       }
 
+      if (parsed.godowns) setGodowns(parsed.godowns);
       if (parsed.customers) setCustomers(parsed.customers);
       if (parsed.brands) setBrands(parsed.brands);
       if (parsed.inventory) setInventory(parsed.inventory);
       if (parsed.stockLogs) setStockLogs(parsed.stockLogs);
+      if (parsed.stockTransfers) setStockTransfers(parsed.stockTransfers);
       if (parsed.companyOrders) setCompanyOrders(parsed.companyOrders);
       if (parsed.trucks) setTrucks(parsed.trucks);
       if (parsed.sales) setSales(parsed.sales);
@@ -750,9 +935,11 @@ export const AppProvider = ({ children }) => {
 
   const resetToFactoryDefaults = () => {
     if (window.confirm('Are you sure you want to reset all data to default demo state? All custom records will be replaced.')) {
+      setGodowns(INITIAL_GODOWNS);
       setCustomers(INITIAL_CUSTOMERS);
       setBrands(INITIAL_BRANDS);
       setInventory(INITIAL_INVENTORY);
+      setStockTransfers([]);
       setCompanyOrders(INITIAL_ORDERS);
       setTrucks(INITIAL_TRUCKS);
       setSales(INITIAL_SALES);
@@ -773,6 +960,16 @@ export const AppProvider = ({ children }) => {
     changeAdminUsername,
     changeAdminPassword,
     resetAdminPasswordViaOtp,
+
+    // Godowns & Multi-Warehouse
+    godowns,
+    setGodowns,
+    addGodown,
+    updateGodown,
+    deleteGodown,
+    stockTransfers,
+    setStockTransfers,
+    transferStockBetweenGodowns,
 
     // Entities
     customers,

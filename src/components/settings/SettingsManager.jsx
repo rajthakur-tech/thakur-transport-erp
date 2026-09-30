@@ -14,13 +14,18 @@ import {
   Sun,
   Moon,
   Smartphone,
-  FileText
+  FileText,
+  Warehouse,
+  QrCode
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { getUpiPaymentUrl } from '../../utils/helpers';
 
 export const SettingsManager = () => {
   const {
     settings,
     setSettings,
+    godowns,
     currentUser,
     adminUsername,
     exportDatabaseJSON,
@@ -243,44 +248,73 @@ export const SettingsManager = () => {
                 </div>
               </div>
 
-              {/* Banking & UPI */}
+              {/* Banking & UPI with Live QR Code Preview */}
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-                  Bank Details & UPI Payment QR
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                  <QrCode className="h-4 w-4 text-emerald-500" />
+                  <span>Bank Details & Dynamic UPI Payment QR</span>
                 </h4>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                      Bank Name
-                    </label>
-                    <input
-                      type="text"
-                      value={bizForm.bankName}
-                      onChange={(e) => setBizForm({ ...bizForm, bankName: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="sm:col-span-2 space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        Bank Name
+                      </label>
+                      <input
+                        type="text"
+                        value={bizForm.bankName}
+                        onChange={(e) => setBizForm({ ...bizForm, bankName: e.target.value })}
+                        className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          Account Number
+                        </label>
+                        <input
+                          type="text"
+                          value={bizForm.accountNumber}
+                          onChange={(e) => setBizForm({ ...bizForm, accountNumber: e.target.value })}
+                          className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs font-mono text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          IFSC Code
+                        </label>
+                        <input
+                          type="text"
+                          value={bizForm.ifscCode}
+                          onChange={(e) => setBizForm({ ...bizForm, ifscCode: e.target.value.toUpperCase() })}
+                          className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs font-mono font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        UPI ID (displayed on bill QR & WhatsApp links)
+                      </label>
+                      <input
+                        type="text"
+                        value={bizForm.upiId}
+                        onChange={(e) => setBizForm({ ...bizForm, upiId: e.target.value })}
+                        className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs font-mono text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-400 font-bold"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                      Account Number
-                    </label>
-                    <input
-                      type="text"
-                      value={bizForm.accountNumber}
-                      onChange={(e) => setBizForm({ ...bizForm, accountNumber: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs font-mono text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                      UPI ID (for QR)
-                    </label>
-                    <input
-                      type="text"
-                      value={bizForm.upiId}
-                      onChange={(e) => setBizForm({ ...bizForm, upiId: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 bg-white p-2 text-xs font-mono text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-400 font-bold"
-                    />
+
+                  {/* Live QR Preview Box */}
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50 text-center">
+                    <div className="rounded-xl bg-white p-2 shadow-sm dark:bg-slate-800">
+                      <QRCodeSVG
+                        value={getUpiPaymentUrl(bizForm.upiId || 'thakurtransport@sbi', bizForm.businessName || 'Thakur Transport', 100, 'Test QR')}
+                        size={85}
+                        level="M"
+                      />
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-2">Live UPI Preview</p>
+                    <p className="font-mono text-[9px] text-blue-600 dark:text-blue-400 truncate max-w-[140px]">{bizForm.upiId}</p>
                   </div>
                 </div>
               </div>

@@ -140,15 +140,107 @@ export const INITIAL_CUSTOMERS = [
   }
 ];
 
+export const INITIAL_GODOWNS = [
+  {
+    id: 'GD-1',
+    name: 'Main Depot (Barghat Yard)',
+    code: 'BGT-01',
+    location: 'Near Bus Stand, Barghat, Dist. Seoni (M.P.)',
+    capacity: 5000,
+    incharge: 'Satish Yadav',
+    phone: '9835012345',
+    isDefault: true,
+    description: 'Central transport yard with direct railway siding access and 5,000 bags storage.'
+  },
+  {
+    id: 'GD-2',
+    name: 'City Godown (Seoni Bypass)',
+    code: 'SNI-02',
+    location: 'NH-44 Bypass Junction, Seoni',
+    capacity: 3000,
+    incharge: 'Ramesh Verma',
+    phone: '9425198765',
+    isDefault: false,
+    description: 'Highway retail depot for quick city dispatch & wholesale supply.'
+  },
+  {
+    id: 'GD-3',
+    name: 'Site Warehouse (Kanhiwada)',
+    code: 'KNH-03',
+    location: 'Main Chowk, Kanhiwada',
+    capacity: 2000,
+    incharge: 'Dinesh Patel',
+    phone: '9801237890',
+    isDefault: false,
+    description: 'Rural supply hub serving Kanhiwada, Ari & Bhoma contractors.'
+  }
+];
+
 export const INITIAL_INVENTORY = [
-  { brandId: 'b1', brandName: 'UltraTech Cement', bagsInStock: 850, damagedBags: 6, minStockAlert: 150 },
-  { brandId: 'b2', brandName: 'Ambuja Cement', bagsInStock: 520, damagedBags: 3, minStockAlert: 100 },
-  { brandId: 'b3', brandName: 'ACC Concrete+', bagsInStock: 410, damagedBags: 2, minStockAlert: 100 },
-  { brandId: 'b4', brandName: 'Shree Ultra', bagsInStock: 600, damagedBags: 5, minStockAlert: 120 },
-  { brandId: 'b5', brandName: 'Dalmia Bharat', bagsInStock: 280, damagedBags: 1, minStockAlert: 80 },
-  { brandId: 'b6', brandName: 'JK Super Cement', bagsInStock: 75, damagedBags: 8, minStockAlert: 90 },
-  { brandId: 'b7', brandName: 'Bangur Power', bagsInStock: 340, damagedBags: 4, minStockAlert: 100 },
-  { brandId: 'b8', brandName: 'Birla A1 Strong', bagsInStock: 40, damagedBags: 2, minStockAlert: 150 }
+  {
+    brandId: 'b1',
+    brandName: 'UltraTech Cement',
+    bagsInStock: 850,
+    damagedBags: 6,
+    minStockAlert: 150,
+    godownStocks: { 'GD-1': 500, 'GD-2': 250, 'GD-3': 100 }
+  },
+  {
+    brandId: 'b2',
+    brandName: 'Ambuja Cement',
+    bagsInStock: 520,
+    damagedBags: 3,
+    minStockAlert: 100,
+    godownStocks: { 'GD-1': 320, 'GD-2': 150, 'GD-3': 50 }
+  },
+  {
+    brandId: 'b3',
+    brandName: 'ACC Concrete+',
+    bagsInStock: 410,
+    damagedBags: 2,
+    minStockAlert: 100,
+    godownStocks: { 'GD-1': 260, 'GD-2': 100, 'GD-3': 50 }
+  },
+  {
+    brandId: 'b4',
+    brandName: 'Shree Ultra',
+    bagsInStock: 600,
+    damagedBags: 5,
+    minStockAlert: 120,
+    godownStocks: { 'GD-1': 350, 'GD-2': 200, 'GD-3': 50 }
+  },
+  {
+    brandId: 'b5',
+    brandName: 'Dalmia Bharat',
+    bagsInStock: 280,
+    damagedBags: 1,
+    minStockAlert: 80,
+    godownStocks: { 'GD-1': 180, 'GD-2': 70, 'GD-3': 30 }
+  },
+  {
+    brandId: 'b6',
+    brandName: 'JK Super Cement',
+    bagsInStock: 75,
+    damagedBags: 8,
+    minStockAlert: 90,
+    godownStocks: { 'GD-1': 45, 'GD-2': 20, 'GD-3': 10 }
+  },
+  {
+    brandId: 'b7',
+    brandName: 'Bangur Power',
+    bagsInStock: 340,
+    damagedBags: 4,
+    minStockAlert: 100,
+    godownStocks: { 'GD-1': 200, 'GD-2': 100, 'GD-3': 40 }
+  },
+  {
+    brandId: 'b8',
+    brandName: 'Birla A1 Strong',
+    bagsInStock: 40,
+    damagedBags: 2,
+    minStockAlert: 150,
+    godownStocks: { 'GD-1': 25, 'GD-2': 15, 'GD-3': 0 }
+  }
 ];
 
 export const INITIAL_ORDERS = [

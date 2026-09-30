@@ -5,7 +5,8 @@ import {
   formatDate,
   formatDateTime,
   getStatusBadgeColor,
-  generateWhatsAppReminder
+  generateWhatsAppReminder,
+  getUpiPaymentUrl
 } from '../../utils/helpers';
 import {
   CreditCard,
@@ -22,8 +23,12 @@ import {
   Phone,
   ArrowDownLeft,
   Calendar,
-  Layers
+  Layers,
+  QrCode,
+  Copy,
+  Share2
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 export const CreditManager = () => {
   const {
@@ -33,7 +38,8 @@ export const CreditManager = () => {
     addCreditPayment,
     settings,
     setViewInvoice,
-    setActiveTab
+    setActiveTab,
+    showToast
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,6 +47,7 @@ export const CreditManager = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedLedgerCustomer, setSelectedLedgerCustomer] = useState(null);
+  const [showUpiScanner, setShowUpiScanner] = useState(false);
 
   // Payment form state
   const [paymentForm, setPaymentForm] = useState({
@@ -105,6 +112,7 @@ export const CreditManager = () => {
 
   const handleOpenPayment = (custAccount) => {
     setSelectedCustomer(custAccount.customer);
+    setShowUpiScanner(false);
     setPaymentForm({
       customerId: custAccount.customer.id,
       customerName: custAccount.customer.name,
@@ -119,43 +127,72 @@ export const CreditManager = () => {
 
   const handlePaymentSubmit = (e) => {
     e.preventDefault();
-    if (Number(paymentForm.amount) <= 0) {
-      alert('Please enter a valid payment amount.');
-      return;
-    }
+    if (Number(paymentForm.amount) <= 0) return;
 
-    addCreditPayment(paymentForm);
+    addCreditPayment({
+      customerId: paymentForm.customerId,
+      customerName: paymentForm.customerName,
+      invoiceId: paymentForm.invoiceId,
+      amount: Number(paymentForm.amount),
+      paymentMode: paymentForm.paymentMode,
+      referenceNumber: paymentForm.referenceNumber,
+      notes: paymentForm.notes
+    });
+
     setIsPaymentModalOpen(false);
   };
 
-  // Get customer specific ledger entries
+  // Compile statement line items for selected ledger customer
   const getCustomerLedgerEntries = (customerId) => {
-    const custSales = sales.filter(s => s.customerId === customerId).map(s => ({
-      id: s.id,
-      date: s.saleDate,
-      type: 'INVOICE',
-      refNo: s.invoiceNumber,
-      description: `${s.numberOfBags} Bags ${s.cementBrand} (Total: ₹${s.totalAmount})`,
-      debit: Number(s.totalAmount),
-      credit: Number(s.paidAmount),
-      balance: Number(s.balanceAmount),
-      raw: s
-    }));
+    const custSales = sales.filter(s => s.customerId === customerId);
+    const custPays = creditPayments.filter(p => p.customerId === customerId);
 
-    const custPayments = creditPayments.filter(p => p.customerId === customerId).map(p => ({
-      id: p.id,
-      date: p.paymentDate,
-      type: 'PAYMENT',
-      refNo: p.referenceNumber,
-      description: `Payment Received (${p.paymentMode}) - ${p.notes || ''}`,
-      debit: 0,
-      credit: Number(p.amount),
-      balance: 0,
-      raw: p
-    }));
+    const entries = [
+      ...custSales.map(s => ({
+        id: s.id,
+        date: s.saleDate,
+        type: 'INVOICE',
+        refNo: s.invoiceNumber,
+        description: `${s.cementBrand} (${s.numberOfBags} Bags @ ₹${s.pricePerBag})`,
+        debit: Number(s.totalAmount),
+        credit: 0,
+        raw: s
+      })),
+      ...custPays.map(p => ({
+        id: p.id,
+        date: p.paymentDate,
+        type: 'PAYMENT',
+        refNo: p.referenceNumber,
+        description: `Payment via ${p.paymentMode} (${p.notes || 'Settlement'})`,
+        debit: 0,
+        credit: Number(p.amount),
+        raw: p
+      }))
+    ];
 
-    return [...custSales, ...custPayments].sort((a, b) => new Date(b.date) - new Date(a.date));
+    return entries.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
+
+  // Totals for top metrics
+  const totalOutstandingAll = useMemo(() => {
+    return creditAccounts.reduce((sum, a) => sum + a.remainingBalance, 0);
+  }, [creditAccounts]);
+
+  const totalOverdueAll = useMemo(() => {
+    return creditAccounts.filter(a => a.isOverdue).reduce((sum, a) => sum + a.remainingBalance, 0);
+  }, [creditAccounts]);
+
+  const overdueAccountsCount = useMemo(() => {
+    return creditAccounts.filter(a => a.isOverdue && a.remainingBalance > 0).length;
+  }, [creditAccounts]);
+
+  // UPI payment URL for modal
+  const upiPayUrl = getUpiPaymentUrl(
+    settings.upiId || 'thakurtransport@sbi',
+    settings.businessName || 'Thakur Transport',
+    paymentForm.amount,
+    `Udhari Settlement ${selectedCustomer?.name || ''}`
+  );
 
   return (
     <div className="space-y-6 pb-12">
@@ -164,30 +201,55 @@ export const CreditManager = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-heading text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
-              Credit (Udhari) Management & Ledger
+              Credit & Customer Ledger (उधारी खाता)
             </h1>
             <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:bg-rose-900/50 dark:text-rose-300">
               Accounts Receivable
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Track customer credit balances, collect partial/full payments, send WhatsApp reminders, and audit ledgers.
+            Track customer outstanding balance, overdue credit aging, 1-click WhatsApp payment reminders with UPI QR code, and ledger settlements.
           </p>
         </div>
-
-        <button
-          onClick={() => {
-            const firstWithDue = creditAccounts.find(a => a.remainingBalance > 0) || creditAccounts[0];
-            if (firstWithDue) handleOpenPayment(firstWithDue);
-          }}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/25 transition-all hover:opacity-95 active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Record Customer Payment</span>
-        </button>
       </div>
 
-      {/* Filter Tabs & Search Bar */}
+      {/* Metric Cards Banner */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+            <span>Total Outstanding Balance</span>
+            <CreditCard className="h-4 w-4 text-blue-500" />
+          </div>
+          <div className="mt-2 font-heading text-2xl font-extrabold text-slate-900 dark:text-white">
+            {formatINR(totalOutstandingAll)}
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">Across all credit buyers & contractors</p>
+        </div>
+
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/40 p-4 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20">
+          <div className="flex items-center justify-between text-xs font-semibold text-rose-700 dark:text-rose-300">
+            <span>Critical Overdue Amount</span>
+            <AlertTriangle className="h-4 w-4 text-rose-600" />
+          </div>
+          <div className="mt-2 font-heading text-2xl font-extrabold text-rose-600 dark:text-rose-400">
+            {formatINR(totalOverdueAll)}
+          </div>
+          <p className="mt-1 text-[11px] text-rose-600/80">Pending past 15-day grace period</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+            <span>Overdue Customer Accounts</span>
+            <Clock className="h-4 w-4 text-amber-500" />
+          </div>
+          <div className="mt-2 font-heading text-2xl font-extrabold text-amber-600 dark:text-amber-400">
+            {overdueAccountsCount} Accounts
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">Require immediate WhatsApp reminder</p>
+        </div>
+      </div>
+
+      {/* Search & Filter Bar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -195,12 +257,12 @@ export const CreditManager = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by customer name, phone, or village..."
+            placeholder="Search by customer name, mobile, or village/town..."
             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           />
         </div>
 
-        <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+        <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800 overflow-x-auto">
           {[
             { id: 'ALL', label: 'All Accounts' },
             { id: 'PENDING', label: 'With Balance Due' },
@@ -210,7 +272,7 @@ export const CreditManager = () => {
             <button
               key={tab.id}
               onClick={() => setFilterType(tab.id)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition shrink-0 ${
                 filterType === tab.id
                   ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-white'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
@@ -307,17 +369,17 @@ export const CreditManager = () => {
               {item.remainingBalance > 0 && (
                 <button
                   onClick={() => handleOpenPayment(item)}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span>Add Payment</span>
+                  <span>Receive ₹</span>
                 </button>
               )}
 
               <button
                 onClick={() => setSelectedLedgerCustomer(item.customer)}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                title="View Full Customer Ledger"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 transition"
+                title="View Full Customer Ledger & Statement"
               >
                 <History className="h-3.5 w-3.5 text-blue-500" />
                 <span>Ledger</span>
@@ -328,15 +390,17 @@ export const CreditManager = () => {
                   href={`https://wa.me/91${item.customer.mobile}?text=${generateWhatsAppReminder(
                     item.customer.name,
                     item.remainingBalance,
-                    item.nearestDueDate || 'Immediate',
-                    settings.businessName
+                    item.nearestDueDate,
+                    settings,
+                    'hindi'
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-xl bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300"
-                  title="Send WhatsApp Payment Reminder"
+                  className="flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm transition"
+                  title="Send Hindi WhatsApp Payment Reminder"
                 >
-                  <MessageCircle className="h-4 w-4" />
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  <span>WhatsApp</span>
                 </a>
               )}
             </div>
@@ -344,22 +408,24 @@ export const CreditManager = () => {
         ))}
       </div>
 
-      {/* RECORD PAYMENT MODAL */}
+      {/* ========================================================================= */}
+      {/* RECORD PAYMENT MODAL (WITH DYNAMIC UPI QR SCANNER)                        */}
+      {/* ========================================================================= */}
       {isPaymentModalOpen && selectedCustomer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div>
                 <h3 className="font-heading text-base font-bold text-slate-900 dark:text-white">
                   Record Payment: {selectedCustomer.name}
                 </h3>
-                <p className="text-xs text-slate-500">Phone: {selectedCustomer.mobile}</p>
+                <p className="text-xs text-slate-500">Phone: {selectedCustomer.mobile} • ID: {selectedCustomer.id}</p>
               </div>
               <button
                 onClick={() => setIsPaymentModalOpen(false)}
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -387,12 +453,15 @@ export const CreditManager = () => {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Payment Mode *
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {['Cash', 'UPI', 'Bank Transfer', 'Cheque'].map(mode => (
                     <button
                       key={mode}
                       type="button"
-                      onClick={() => setPaymentForm({ ...paymentForm, paymentMode: mode })}
+                      onClick={() => {
+                        setPaymentForm({ ...paymentForm, paymentMode: mode });
+                        if (mode === 'UPI') setShowUpiScanner(true);
+                      }}
                       className={`rounded-xl py-2 text-xs font-bold transition ${
                         paymentForm.paymentMode === mode
                           ? 'bg-blue-600 text-white shadow-md'
@@ -404,6 +473,34 @@ export const CreditManager = () => {
                   ))}
                 </div>
               </div>
+
+              {/* Dynamic UPI QR Code Card */}
+              {(paymentForm.paymentMode === 'UPI' || showUpiScanner) && (
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 flex flex-col sm:flex-row items-center gap-4">
+                  <div className="rounded-xl bg-white p-2 shadow-md dark:bg-slate-800 shrink-0">
+                    <QRCodeSVG value={upiPayUrl} size={110} level="M" />
+                  </div>
+                  <div className="space-y-1 text-center sm:text-left">
+                    <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-center sm:justify-start gap-1">
+                      <QrCode className="h-3.5 w-3.5" />
+                      <span>Customer Scan & Pay ₹{Number(paymentForm.amount || 0).toLocaleString('en-IN')}</span>
+                    </p>
+                    <p className="font-mono text-xs text-slate-700 dark:text-slate-300">UPI: {settings.upiId}</p>
+                    <p className="text-[11px] text-slate-500">Scan with PhonePe, Google Pay, Paytm, BHIM</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(upiPayUrl);
+                        showToast('UPI Link copied!', 'success');
+                      }}
+                      className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center justify-center sm:justify-start gap-1 mt-1"
+                    >
+                      <Copy className="h-3 w-3" />
+                      <span>Copy UPI Intent Link</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -435,13 +532,13 @@ export const CreditManager = () => {
                 <button
                   type="button"
                   onClick={() => setIsPaymentModalOpen(false)}
-                  className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                  className="rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-700"
+                  className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700"
                 >
                   Confirm & Update Ledger
                 </button>
@@ -451,27 +548,48 @@ export const CreditManager = () => {
         </div>
       )}
 
-      {/* CUSTOMER FULL LEDGER AUDIT MODAL */}
+      {/* ========================================================================= */}
+      {/* CUSTOMER FULL LEDGER AUDIT MODAL (WITH QR CODE STATEMENT)                 */}
+      {/* ========================================================================= */}
       {selectedLedgerCustomer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 dark:border-slate-800 gap-3">
               <div>
                 <h3 className="font-heading text-xl font-bold text-slate-900 dark:text-white">
                   Payment History & Statement: {selectedLedgerCustomer.name}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Mobile: {selectedLedgerCustomer.mobile} • {selectedLedgerCustomer.village}, {selectedLedgerCustomer.city}
+                  Mobile: {selectedLedgerCustomer.mobile} • {selectedLedgerCustomer.village || ''}, {selectedLedgerCustomer.city || ''}
                 </p>
               </div>
-              <button
-                onClick={() => setSelectedLedgerCustomer(null)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://wa.me/91${selectedLedgerCustomer.mobile}?text=${generateWhatsAppReminder(
+                    selectedLedgerCustomer.name,
+                    creditAccounts.find(a => a.customer.id === selectedLedgerCustomer.id)?.remainingBalance || 0,
+                    null,
+                    settings,
+                    'hindi'
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  <span>Send WhatsApp</span>
+                </a>
+
+                <button
+                  onClick={() => setSelectedLedgerCustomer(null)}
+                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
+            {/* Ledger Table */}
             <div className="mt-4 overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400">
@@ -509,6 +627,7 @@ export const CreditManager = () => {
                           <button
                             onClick={() => setViewInvoice(entry.raw)}
                             className="rounded p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                            title="View Invoice"
                           >
                             <Eye className="h-4 w-4" />
                           </button>

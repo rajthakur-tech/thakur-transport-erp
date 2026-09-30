@@ -23,7 +23,8 @@ import {
   X,
   MessageCircle,
   Sparkles,
-  DollarSign
+  DollarSign,
+  Warehouse
 } from 'lucide-react';
 import { InvoiceModal } from './InvoiceModal';
 
@@ -36,6 +37,7 @@ export const SalesManager = () => {
     addCustomer,
     brands,
     inventory,
+    godowns,
     viewInvoice,
     setViewInvoice,
     settings,
@@ -44,6 +46,7 @@ export const SalesManager = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('ALL');
+  const [godownFilter, setGodownFilter] = useState('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewCustInline, setIsNewCustInline] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState(null);
@@ -51,11 +54,14 @@ export const SalesManager = () => {
   // Form State
   const defaultCustomer = customers[0] || { id: 'CUST-1001', name: 'Rajeshwar Thakur', mobile: '9835012345' };
   const defaultBrand = brands[0] || { id: 'b1', name: 'UltraTech Cement', unitPrice: 385 };
+  const defaultGodown = godowns[0] || { id: 'GD-1', name: 'Main Depot (Barghat Yard)' };
 
   const initialForm = {
     customerId: defaultCustomer.id,
     customerName: defaultCustomer.name,
     customerMobile: defaultCustomer.mobile,
+    godownId: defaultGodown.id,
+    godownName: defaultGodown.name,
     cementBrand: defaultBrand.name,
     brandId: defaultBrand.id,
     numberOfBags: 50,
@@ -83,10 +89,11 @@ export const SalesManager = () => {
         (sale.customerMobile && sale.customerMobile.includes(searchQuery));
 
       const matchesPayment = paymentFilter === 'ALL' || sale.paymentType === paymentFilter;
+      const matchesGodown = godownFilter === 'ALL' || sale.godownId === godownFilter;
 
-      return matchesSearch && matchesPayment;
+      return matchesSearch && matchesPayment && matchesGodown;
     });
-  }, [sales, searchQuery, paymentFilter]);
+  }, [sales, searchQuery, paymentFilter, godownFilter]);
 
   // Handle customer select
   const handleCustomerSelect = (custId) => {
@@ -249,17 +256,32 @@ export const SalesManager = () => {
           />
         </div>
 
-        <select
-          value={paymentFilter}
-          onChange={(e) => setPaymentFilter(e.target.value)}
-          className="rounded-xl border border-slate-200 bg-slate-50 py-2 px-3 text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-        >
-          <option value="ALL">All Payment Types</option>
-          <option value="Cash">Cash</option>
-          <option value="UPI">UPI</option>
-          <option value="Bank Transfer">Bank Transfer</option>
-          <option value="Credit (Udhari)">Credit (Udhari)</option>
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Godown Filter */}
+          <select
+            value={godownFilter}
+            onChange={(e) => setGodownFilter(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-slate-50 py-2 px-3 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          >
+            <option value="ALL">🏢 All Godowns</option>
+            {godowns.map(g => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+
+          {/* Payment Type Filter */}
+          <select
+            value={paymentFilter}
+            onChange={(e) => setPaymentFilter(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-slate-50 py-2 px-3 text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          >
+            <option value="ALL">All Payment Types</option>
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="Credit (Udhari)">Credit (Udhari)</option>
+          </select>
+        </div>
       </div>
 
       {/* Invoices List Table */}
@@ -272,6 +294,7 @@ export const SalesManager = () => {
                 <th className="py-3 px-4 font-semibold">Date</th>
                 <th className="py-3 px-4 font-semibold">Customer</th>
                 <th className="py-3 px-4 font-semibold">Brand & Bags</th>
+                <th className="py-3 px-4 font-semibold">Godown</th>
                 <th className="py-3 px-4 font-semibold">Total Amount</th>
                 <th className="py-3 px-4 font-semibold">Payment / Dues</th>
                 <th className="py-3 px-4 font-semibold text-right">Actions</th>
@@ -296,6 +319,12 @@ export const SalesManager = () => {
                       <strong>{sale.numberOfBags} Bags</strong> @ ₹{sale.pricePerBag}
                     </div>
                   </td>
+                  <td className="py-3.5 px-4">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                      <Warehouse className="h-3 w-3 text-blue-500" />
+                      <span>{sale.godownName || 'Main Depot'}</span>
+                    </span>
+                  </td>
                   <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white text-sm">
                     {formatINR(sale.totalAmount)}
                   </td>
@@ -313,11 +342,11 @@ export const SalesManager = () => {
                     <div className="flex items-center justify-end gap-1">
                       {/* WhatsApp share */}
                       <a
-                        href={`https://wa.me/91${sale.customerMobile}?text=${generateWhatsAppInvoice(sale, settings)}`}
+                        href={`https://wa.me/91${sale.customerMobile}?text=${generateWhatsAppInvoice(sale, settings, 'hindi')}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                        title="Send on WhatsApp"
+                        title="Send Hindi Bill on WhatsApp"
                       >
                         <MessageCircle className="h-4 w-4" />
                       </a>
@@ -423,25 +452,57 @@ export const SalesManager = () => {
                 )}
               </div>
 
-              {/* Cement Brand Selection */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Cement Brand *
-                </label>
-                <select
-                  value={formData.cementBrand}
-                  onChange={(e) => handleBrandSelect(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                >
-                  {brands.map(b => {
-                    const stock = inventory.find(i => i.brandName === b.name)?.bagsInStock || 0;
-                    return (
-                      <option key={b.id} value={b.name}>
-                        {b.name} ({b.type}) • Stock: {stock} Bags • Rate: ₹{b.unitPrice}
+              {/* Godown (Warehouse) & Cement Brand Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Godown Selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                    <Warehouse className="h-3.5 w-3.5 text-blue-500" />
+                    <span>Dispatch From Godown *</span>
+                  </label>
+                  <select
+                    value={formData.godownId}
+                    onChange={(e) => {
+                      const g = godowns.find(item => item.id === e.target.value);
+                      setFormData(prev => ({
+                        ...prev,
+                        godownId: e.target.value,
+                        godownName: g?.name || 'Main Depot'
+                      }));
+                    }}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    {godowns.map(g => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
                       </option>
-                    );
-                  })}
-                </select>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Cement Brand Selection */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Cement Brand *
+                  </label>
+                  <select
+                    value={formData.cementBrand}
+                    onChange={(e) => handleBrandSelect(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    {brands.map(b => {
+                      const invItem = inventory.find(i => i.brandName === b.name);
+                      const godownStock = (invItem?.godownStocks && invItem.godownStocks[formData.godownId]) !== undefined
+                        ? invItem.godownStocks[formData.godownId]
+                        : (invItem?.bagsInStock || 0);
+                      return (
+                        <option key={b.id} value={b.name}>
+                          {b.name} ({b.type}) • In Godown: {godownStock} Bags • ₹{b.unitPrice}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
               </div>
 
               {/* Number of Bags & Price Per Bag */}
