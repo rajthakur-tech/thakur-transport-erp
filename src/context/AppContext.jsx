@@ -424,6 +424,16 @@ export const AppProvider = ({ children }) => {
     return { success: true, transfer: transferRecord };
   };
 
+  const deleteStockTransfer = (transferId) => {
+    const trf = stockTransfers.find(t => t.id === transferId);
+    if (!trf) return;
+    if (window.confirm(`Are you sure you want to delete transfer challan "${trf.transferNumber}"?`)) {
+      setStockTransfers(prev => prev.filter(t => t.id !== transferId));
+      setStockLogs(prev => prev.filter(l => l.reference !== trf.transferNumber));
+      showToast(`Transfer record ${trf.transferNumber} deleted`, 'info');
+    }
+  };
+
   // --- Sales & Billing Operations ---
   const addSale = (saleData) => {
     const currentYear = new Date().getFullYear().toString().slice(-2);
@@ -546,6 +556,52 @@ export const AppProvider = ({ children }) => {
     }
 
     showToast(`Payment of ₹${payAmount.toLocaleString('en-IN')} recorded for ${customerName}`, 'success');
+  };
+
+  const deleteCreditPayment = (paymentId) => {
+    const paymentToDelete = creditPayments.find(p => p.id === paymentId);
+    if (!paymentToDelete) return;
+
+    const payAmount = Number(paymentToDelete.amount) || 0;
+    const { customerId, invoiceId } = paymentToDelete;
+
+    // Restore unpaid balance on sales invoices
+    if (invoiceId && invoiceId !== 'GENERAL') {
+      setSales(prev => prev.map(s => {
+        if (s.id === invoiceId) {
+          const newPaid = Math.max(0, (Number(s.paidAmount) || 0) - payAmount);
+          const newBal = Math.max(0, (Number(s.totalAmount) || 0) - newPaid);
+          const newStatus = newPaid === 0 ? 'Pending' : (newBal <= 0 ? 'Paid' : 'Partially Paid');
+          return { ...s, paidAmount: newPaid, balanceAmount: newBal, status: newStatus };
+        }
+        return s;
+      }));
+    } else {
+      let remainingReversal = payAmount;
+      setSales(prev => {
+        const updated = [...prev];
+        // Reverse payment in reverse FIFO order (latest paid invoice gets reverted first)
+        for (let i = updated.length - 1; i >= 0 && remainingReversal > 0; i--) {
+          const s = updated[i];
+          if (s.customerId === customerId && (Number(s.paidAmount) || 0) > 0) {
+            const revertFromThis = Math.min(Number(s.paidAmount), remainingReversal);
+            const newPaid = Number(s.paidAmount) - revertFromThis;
+            const newBal = (Number(s.totalAmount) || 0) - newPaid;
+            remainingReversal -= revertFromThis;
+            updated[i] = {
+              ...s,
+              paidAmount: newPaid,
+              balanceAmount: newBal,
+              status: newPaid === 0 ? 'Pending' : (newBal <= 0 ? 'Paid' : 'Partially Paid')
+            };
+          }
+        }
+        return updated;
+      });
+    }
+
+    setCreditPayments(prev => prev.filter(p => p.id !== paymentId));
+    showToast(`Payment receipt ${paymentToDelete.referenceNumber || paymentId} deleted and customer balance restored`, 'info');
   };
 
   // --- Company Orders & Logistics ---
@@ -970,6 +1026,7 @@ export const AppProvider = ({ children }) => {
     stockTransfers,
     setStockTransfers,
     transferStockBetweenGodowns,
+    deleteStockTransfer,
 
     // Entities
     customers,
@@ -1004,6 +1061,7 @@ export const AppProvider = ({ children }) => {
 
     creditPayments,
     addCreditPayment,
+    deleteCreditPayment,
 
     settings,
     setSettings,

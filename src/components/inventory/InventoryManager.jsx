@@ -47,6 +47,7 @@ export const InventoryManager = () => {
     deleteGodown,
     stockTransfers,
     transferStockBetweenGodowns,
+    deleteStockTransfer,
     analytics,
     currentUser,
     showToast
@@ -55,6 +56,11 @@ export const InventoryManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGodownTab, setSelectedGodownTab] = useState('ALL'); // 'ALL' | godownId
   const [historyTab, setHistoryTab] = useState('logs'); // 'logs' | 'transfers'
+
+  // Delete Confirmation States
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [logToDelete, setLogToDelete] = useState(null);
+  const [transferToDelete, setTransferToDelete] = useState(null);
 
   // Modals
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
@@ -430,16 +436,28 @@ export const InventoryManager = () => {
                     <p className="text-[10px] text-slate-500">{brandMeta.type || 'PPC 53 Grade'}</p>
                   </div>
 
-                  {isLowStock ? (
-                    <span className="flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm">
-                      <AlertTriangle className="h-3 w-3" />
-                      Low Stock
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                      In Stock
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {isLowStock ? (
+                      <span className="flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm">
+                        <AlertTriangle className="h-3 w-3" />
+                        Low Stock
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        In Stock
+                      </span>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setItemToDelete(item);
+                      }}
+                      className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition"
+                      title={`Delete ${item.brandName} from Inventory`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Stock Number */}
@@ -561,9 +579,9 @@ export const InventoryManager = () => {
                     <td className="py-2.5 px-3 text-slate-500 max-w-xs truncate">{log.notes || '-'}</td>
                     <td className="py-2.5 px-3 text-right">
                       <button
-                        onClick={() => deleteStockLog(log.id)}
-                        className="text-slate-400 hover:text-rose-600 p-1"
-                        title="Delete log"
+                        onClick={() => setLogToDelete(log)}
+                        className="text-slate-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                        title="Delete stock movement log"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -589,6 +607,7 @@ export const InventoryManager = () => {
                   <th className="py-2.5 px-3 font-semibold text-center">Bags</th>
                   <th className="py-2.5 px-3 font-semibold">Vehicle / Driver</th>
                   <th className="py-2.5 px-3 font-semibold">Status</th>
+                  <th className="py-2.5 px-3 font-semibold text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -609,6 +628,15 @@ export const InventoryManager = () => {
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                         {trf.status || 'Completed'}
                       </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <button
+                        onClick={() => setTransferToDelete(trf)}
+                        className="text-slate-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                        title="Delete transfer challan record"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1233,6 +1261,183 @@ export const InventoryManager = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DELETE CONFIRMATION MODALS                                                */}
+      {/* ========================================================================= */}
+
+      {/* 1. DELETE BRAND / STOCK ITEM MODAL */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-heading text-base font-bold text-slate-900 dark:text-white">
+                  Delete Inventory Brand?
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Are you sure you want to delete <strong className="text-slate-800 dark:text-slate-200">{itemToDelete.brandName}</strong> from inventory stock?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-xs dark:border-slate-800 dark:bg-slate-800/60 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Brand Name:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{itemToDelete.brandName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Current In Stock:</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400">{formatNumber(itemToDelete.bagsInStock)} Bags</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Damaged Bags:</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{itemToDelete.damagedBags || 0} Bags</span>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span>This will remove this product from the inventory stock list.</span>
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setItemToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteInventoryItem(itemToDelete.brandId || itemToDelete.brandName);
+                  setItemToDelete(null);
+                }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-sm transition"
+              >
+                Delete Brand
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. DELETE STOCK LOG MODAL */}
+      {logToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-heading text-base font-bold text-slate-900 dark:text-white">
+                  Delete Stock Movement Log?
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Delete audit log for <strong className="text-slate-800 dark:text-slate-200">{logToDelete.brandName}</strong> ({logToDelete.type})?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-xs dark:border-slate-800 dark:bg-slate-800/60 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Date:</span>
+                <span className="font-mono text-slate-900 dark:text-white">{formatDate(logToDelete.date)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Type & Bags:</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">{logToDelete.type} • {logToDelete.bags} Bags</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Reference:</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300">{logToDelete.reference || '-'}</span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setLogToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteStockLog(logToDelete.id);
+                  setLogToDelete(null);
+                }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-sm transition"
+              >
+                Delete Log
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. DELETE TRANSFER RECORD MODAL */}
+      {transferToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-heading text-base font-bold text-slate-900 dark:text-white">
+                  Delete Transfer Record?
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Delete challan <strong className="text-blue-600 dark:text-blue-400">{transferToDelete.transferNumber}</strong>?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-xs dark:border-slate-800 dark:bg-slate-800/60 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Route:</span>
+                <span className="font-medium text-slate-900 dark:text-white">{transferToDelete.fromGodownName} ➔ {transferToDelete.toGodownName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Brand & Quantity:</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">{transferToDelete.brandName} • {transferToDelete.quantity} Bags</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Vehicle / Driver:</span>
+                <span className="text-slate-700 dark:text-slate-300">{transferToDelete.vehicleNumber} ({transferToDelete.driverName})</span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setTransferToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteStockTransfer(transferToDelete.id);
+                  setTransferToDelete(null);
+                }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-sm transition"
+              >
+                Delete Challan
+              </button>
+            </div>
           </div>
         </div>
       )}

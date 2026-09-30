@@ -26,7 +26,8 @@ import {
   Layers,
   QrCode,
   Copy,
-  Share2
+  Share2,
+  Trash2
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -36,6 +37,7 @@ export const CreditManager = () => {
     sales,
     creditPayments,
     addCreditPayment,
+    deleteCreditPayment,
     settings,
     setViewInvoice,
     setActiveTab,
@@ -48,6 +50,7 @@ export const CreditManager = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedLedgerCustomer, setSelectedLedgerCustomer] = useState(null);
   const [showUpiScanner, setShowUpiScanner] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState(null);
 
   // Payment form state
   const [paymentForm, setPaymentForm] = useState({
@@ -409,6 +412,77 @@ export const CreditManager = () => {
       </div>
 
       {/* ========================================================================= */}
+      {/* RECENT CREDIT PAYMENTS & RECEIPTS TABLE                                   */}
+      {/* ========================================================================= */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-emerald-600" />
+            <div>
+              <h2 className="font-heading text-base font-bold text-slate-900 dark:text-white">
+                Recent Payment Receipts (जमा रसीदें)
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                All customer credit settlements with instant receipt deletion & balance reversal
+              </p>
+            </div>
+          </div>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            {creditPayments.length} Total Receipts
+          </span>
+        </div>
+
+        {creditPayments.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-400">
+            No credit payment receipts recorded yet.
+          </div>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-100 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400">
+                <tr>
+                  <th className="py-2.5 px-3 font-semibold">Date</th>
+                  <th className="py-2.5 px-3 font-semibold">Receipt / Ref No</th>
+                  <th className="py-2.5 px-3 font-semibold">Customer Name</th>
+                  <th className="py-2.5 px-3 font-semibold">Mode</th>
+                  <th className="py-2.5 px-3 font-semibold text-right">Amount Received</th>
+                  <th className="py-2.5 px-3 font-semibold">Notes / Purpose</th>
+                  <th className="py-2.5 px-3 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {creditPayments.slice(0, 10).map((pay) => (
+                  <tr key={pay.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400">{formatDate(pay.paymentDate)}</td>
+                    <td className="py-2.5 px-3 font-mono font-bold text-blue-600 dark:text-blue-400">{pay.referenceNumber || pay.id}</td>
+                    <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{pay.customerName}</td>
+                    <td className="py-2.5 px-3">
+                      <span className="inline-flex rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        {pay.paymentMode}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 font-mono font-extrabold text-emerald-600 dark:text-emerald-400 text-right">
+                      {formatINR(pay.amount)}
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-500 max-w-xs truncate">{pay.notes || 'Settlement'}</td>
+                    <td className="py-2.5 px-3 text-right">
+                      <button
+                        onClick={() => setPaymentToDelete(pay)}
+                        className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition"
+                        title="Delete Payment Receipt & Restore Balance"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
       {/* RECORD PAYMENT MODAL (WITH DYNAMIC UPI QR SCANNER)                        */}
       {/* ========================================================================= */}
       {isPaymentModalOpen && selectedCustomer && (
@@ -623,15 +697,26 @@ export const CreditManager = () => {
                         {entry.credit > 0 ? formatINR(entry.credit) : '-'}
                       </td>
                       <td className="py-3 px-3 text-right">
-                        {entry.type === 'INVOICE' && (
-                          <button
-                            onClick={() => setViewInvoice(entry.raw)}
-                            className="rounded p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
-                            title="View Invoice"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                        )}
+                        <div className="flex items-center justify-end gap-1">
+                          {entry.type === 'INVOICE' && (
+                            <button
+                              onClick={() => setViewInvoice(entry.raw)}
+                              className="rounded p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                              title="View Invoice"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          )}
+                          {entry.type === 'PAYMENT' && (
+                            <button
+                              onClick={() => setPaymentToDelete(entry.raw)}
+                              className="rounded p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                              title="Delete Payment Receipt & Restore Balance"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -645,6 +730,73 @@ export const CreditManager = () => {
                 className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900"
               >
                 Close Statement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DELETE PAYMENT CONFIRMATION MODAL                                         */}
+      {/* ========================================================================= */}
+      {paymentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-heading text-base font-bold text-slate-900 dark:text-white">
+                  Delete Payment Receipt?
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Are you sure you want to delete receipt <strong className="text-slate-800 dark:text-slate-200">{paymentToDelete.referenceNumber || paymentToDelete.id}</strong>?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-xs dark:border-slate-800 dark:bg-slate-800/60 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Customer:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{paymentToDelete.customerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Amount Paid:</span>
+                <span className="font-extrabold text-rose-600 dark:text-rose-400">{formatINR(paymentToDelete.amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Payment Mode:</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{paymentToDelete.paymentMode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Date:</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300">{formatDate(paymentToDelete.paymentDate)}</span>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span>Deleting this payment will add ₹{Number(paymentToDelete.amount || 0).toLocaleString('en-IN')} back to customer's outstanding balance.</span>
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPaymentToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteCreditPayment(paymentToDelete.id);
+                  setPaymentToDelete(null);
+                }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 shadow-sm transition"
+              >
+                Delete Payment Receipt
               </button>
             </div>
           </div>
