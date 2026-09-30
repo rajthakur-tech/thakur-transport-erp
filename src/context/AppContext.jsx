@@ -427,11 +427,9 @@ export const AppProvider = ({ children }) => {
   const deleteStockTransfer = (transferId) => {
     const trf = stockTransfers.find(t => t.id === transferId);
     if (!trf) return;
-    if (window.confirm(`Are you sure you want to delete transfer challan "${trf.transferNumber}"?`)) {
-      setStockTransfers(prev => prev.filter(t => t.id !== transferId));
-      setStockLogs(prev => prev.filter(l => l.reference !== trf.transferNumber));
-      showToast(`Transfer record ${trf.transferNumber} deleted`, 'info');
-    }
+    setStockTransfers(prev => prev.filter(t => t.id !== transferId));
+    setStockLogs(prev => prev.filter(l => l.reference !== trf.transferNumber));
+    showToast(`Transfer record ${trf.transferNumber} deleted`, 'info');
   };
 
   // --- Sales & Billing Operations ---
@@ -759,18 +757,14 @@ export const AppProvider = ({ children }) => {
   const deleteInventoryItem = (brandIdOrName) => {
     const itemToDelete = inventory.find(i => i.brandId === brandIdOrName || i.brandName === brandIdOrName);
     if (!itemToDelete) return;
-    if (window.confirm(`Are you sure you want to delete "${itemToDelete.brandName}" from inventory stock?`)) {
-      setInventory(prev => prev.filter(i => i.brandId !== brandIdOrName && i.brandName !== brandIdOrName));
-      setBrands(prev => prev.filter(b => b.id !== brandIdOrName && b.name !== itemToDelete.brandName));
-      showToast(`Inventory item "${itemToDelete.brandName}" deleted`, 'info');
-    }
+    setInventory(prev => prev.filter(i => i.brandId !== brandIdOrName && i.brandName !== brandIdOrName));
+    setBrands(prev => prev.filter(b => b.id !== brandIdOrName && b.name !== itemToDelete.brandName));
+    showToast(`Inventory item "${itemToDelete.brandName}" deleted`, 'info');
   };
 
   const deleteStockLog = (logId) => {
-    if (window.confirm('Delete this stock movement audit log entry?')) {
-      setStockLogs(prev => prev.filter(log => log.id !== logId));
-      showToast('Stock audit log removed', 'info');
-    }
+    setStockLogs(prev => prev.filter(log => log.id !== logId));
+    showToast('Stock audit log removed', 'info');
   };
 
   // --- Backup & Restore ---
